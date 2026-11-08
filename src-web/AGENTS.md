@@ -1,6 +1,6 @@
 # 规则
 摇树：对于支持按需导入和摇树的，必须使用按需导入和摇树，避免全部导入。
-组件化：能独立成组件的必须组件化（单一文件包含所有内容，除非有共用的样式或逻辑才拆分），提高复用率，减少重复代码。
+！组件化：能独立成组件的必须组件化（单一文件包含所有内容，除非有共用的样式或逻辑才拆分），提高复用率，减少重复代码。
 光标：注意根据场景和元素切换合适的光标样式。
 屏幕适配：注意需要兼容不同设备屏幕尺寸（如手机、平板、PC 等尺寸），避免在不同设备上显示异常。
 滚动归属：禁止整窗/文档级滚动（html/body/#root overflow 恒 hidden，见 index.scss 裁切规则），滚动只允许区域级容器——壳内一律官方 ScrollArea，AppShell 之外的全屏页自带 `h-svh overflow-y-auto` 滚动盒；禁止调用 `window.scrollTo`/`documentElement.scrollTop` 等文档滚动 API，也不得用 min-h-svh 把撑高推给文档。
@@ -15,11 +15,11 @@ Tailwind：
 - 覆盖 shadcn 组件内部默认类必须带同变体全类名（如 `group-data-[side=left]:border-r-0`），裸类名赢不了 tailwind-merge。
 - icon 一律显式固定尺寸（`size-4 shrink-0`），不依赖组件的 `[&_svg]` 后代规则。
 
-shadcn ui：
+！shadcn ui：
 完全接纳和使用 shadcn 系列的官方全生态，包括组件、主题、插件、...等，尽量避免自己实现和使用其他组件库！！！
 在编写时需要特别注意主题相关，保证有效果。
 - **生态优先级（选型阶梯，逐级往下判，不许跳级）**：① **shadcn 官方 registry**（`ui.shadcn.com`，含 `message`/`message-scroller`/`bubble`/`trace`/`attachment`/`marker`/`code-block`/`item`/`field`/`input-group` 这批聊天与表单原语）——官方有就用官方，`shadcn add` 后直接使用；② **AI Elements**（`@ai-elements` registry，真值在 components.json 的 `registries`，可安装 30 条，全是 AI 向）——仅当官方确无对应物、且要解决的正是 AI 产品语义（工具调用 `tool`、运行态 `task`/`queue`/`context`/`controls`/`connection`、推理链 `reasoning`/`chain-of-thought`、来源引用 `sources`/`inline-citation`、预览与画布 `web-preview`/`canvas`/`artifact`/`code-block`、流程图 `node`/`edge`、模型选择 `model-selector`、检查点/确认 `checkpoint`/`confirmation`）时才取；③ 自建组件，只在①②都无物时才允许，且必须说明为什么前两级不行。两级冲突时（同一功能官方也有）一律留官方、删 AI Elements 那份。
-- 组件清单地址（选型时直接抓，别靠记忆；条目数量随上游变动，以抓取当日为准。以下 pattern 已逐条验通，标注 ✗ 的是踩过的错写法，别再试）：
+- ！组件清单地址（选型时直接抓，别靠记忆；条目数量随上游变动，以抓取当日为准。以下 pattern 已逐条验通，标注 ✗ 的是踩过的错写法，别再试）：
   - **官方 shadcn**
     - 可安装总清单 `https://ui.shadcn.com/r/index.json`＝数组，一条一个可安装项，每项带 `files` 与 `meta.links.{base,aria,radix}`（三种实现的 docs/examples/api 地址）。
     - 单项 **必须带 style 段**：`https://ui.shadcn.com/r/styles/{style}/{name}.json`（style 取 components.json 的 `style`，本项目 `base-nova`；已按 index.json 全 65 项逐个验通）。✗ `https://ui.shadcn.com/r/{name}.json` 恒 404。
