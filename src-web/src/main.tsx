@@ -3,12 +3,14 @@ import { createRoot } from "react-dom/client"
 import { RouterProvider } from "react-router"
 
 import "./index.scss"
-import { WindowRadius } from "@/components/layout/window-radius.tsx"
-import { WindowReveal } from "@/components/layout/window-reveal.tsx"
+import { AppBoot } from "@/components/app-boot.tsx"
+import { WindowBootstrap } from "@/components/layout/window-bootstrap.tsx"
+import { StorageStatusToast } from "@/components/storage-status-toast.tsx"
 import { ThemeProvider } from "@/components/theme-provider.tsx"
 import { Toaster, toast } from "@/components/ui/toast.tsx"
 import { TooltipProvider } from "@/components/ui/tooltip.tsx"
 import { mountLayerInspector } from "@/dev/layer-inspector.ts"
+import { readText, writeText } from "@/lib/storage"
 import { onSidecarTerminated } from "@/lib/tauri"
 import { router } from "@/routes/router.tsx"
 import { installWebviewGuards } from "@/shortcuts/webview.ts"
@@ -29,22 +31,27 @@ void onSidecarTerminated((code) => {
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <ThemeProvider>
-      {/* 提示浮层出口：main 挂一次，登录页与主壳共用（避免两处各包一层 provider） */}
-      <TooltipProvider>
-        <RouterProvider router={router} />
-        {/* 全局提示出口（toast manager 由 ui/toast 单例提供） */}
-        <Toaster />
-        {/* 圆角通道：登录页与主壳共用一份持久化半径 */}
-        <WindowRadius />
-        {/* 首屏提交后才让窗口出场（启动阶段窗口保持最小化） */}
-        <WindowReveal />
-      </TooltipProvider>
-    </ThemeProvider>
+    {/* 启动闸门：IndexedDB 装载 + store 水合完成后才渲染，期间显示整页骨架 */}
+    <AppBoot>
+      {(boot) => (
+        <ThemeProvider initialTheme={boot.theme}>
+          {/* 提示浮层出口：main 挂一次，登录页与主壳共用（避免两处各包一层 provider） */}
+          <TooltipProvider>
+            <RouterProvider router={router} />
+            {/* 全局提示出口（toast manager 由 ui/toast 单例提供） */}
+            <Toaster />
+            {/* 运行期落库失败提示：非阻塞轻提示，重试成功后自动收起 */}
+            <StorageStatusToast />
+            {/* 圆角通道 + 窗口出场时机：登录页与主壳共用一份（启动阶段窗口保持最小化） */}
+            <WindowBootstrap />
+          </TooltipProvider>
+        </ThemeProvider>
+      )}
+    </AppBoot>
   </StrictMode>
 )
 
-// 层级背景检视：零依赖原生工具，仅 dev 挂载（release 分支被剔除）
+// 层级背景检视：零依赖原生工具，仅 dev 挂载；位置存档经持久化门面异步读写
 if (import.meta.env.DEV) {
-  mountLayerInspector()
+  void mountLayerInspector({ read: readText, write: writeText })
 }

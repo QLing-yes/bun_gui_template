@@ -1,5 +1,5 @@
 // 层级背景检视器：零依赖单文件（纯 TS + 内联 CSS），可整体拷进任何项目使用。
-// 用法：宿主自行加 dev 门，例如 if (import.meta.env.DEV) mountLayerInspector()
+// 用法：宿主自行加 dev 门并注入异步存储，例如 mountLayerInspector({ read, write })
 // 能力：自动扫描绘制层（html、body 恒为最底两层，其余为自带 bg / 背景图 / backdrop-filter /
 // box-shadow / outline 的元素），按文档顺序＝绘制顺序编号，默认由内向外逐层 visibility 隐藏
 // （先撤最靠前的层，⇄ 切成从 html/body 起；只撤绘制、不动布局）；
@@ -42,6 +42,14 @@ interface Pos {
   side: "left" | "right"
   /** 按钮 top（px） */
   y: number
+}
+
+/** 宿主注入的异步持久化接口（本文件不直连任何存储，保持零依赖可搬运） */
+export type LayerInspectorStorage = {
+  /** 异步读取原始字符串 @param key 存储键 */
+  read: (key: string) => Promise<string | null>
+  /** 异步写入原始字符串 @param key 存储键 @param value 待存值 */
+  write: (key: string, value: string) => Promise<void>
 }
 
 const CSS = `
@@ -325,10 +333,10 @@ function buildTree(layers: Layer[], flash: Flash): HTMLElement {
   return wrap
 }
 
-/** 读吸边存档；无存档回落右侧靠上 */
-function readPos(): Pos {
+/** 读吸边存档；无存档回落右侧靠上 @param storage 宿主注入的异步存储 @returns 悬浮按钮位置 */
+async function readPos(storage: LayerInspectorStorage): Promise<Pos> {
   try {
-    const raw = localStorage.getItem(STORE_KEY)
+    const raw = await storage.read(STORE_KEY)
     if (raw) {
       const p = JSON.parse(raw) as Pos
       if (p.side === "left" || p.side === "right") {
@@ -336,29 +344,32 @@ function readPos(): Pos {
       }
     }
   } catch {
-    /* localStorage 不可用即用默认 */
+    /* 存储不可用即用默认 */
   }
   return { side: "right", y: INSET }
 }
 
-/** 存吸边存档（禁用存储时静默，不影响本次会话定位） */
-function savePos(p: Pos): void {
-  try {
-    localStorage.setItem(STORE_KEY, JSON.stringify(p))
-  } catch {
+/** 存吸边存档（失败静默，不影响本次会话定位） @param storage 宿主注入的异步存储 @param p 按钮位置 */
+function savePos(storage: LayerInspectorStorage, p: Pos): void {
+  void storage.write(STORE_KEY, JSON.stringify(p)).catch(() => {
     /* 忽略：仅丢持久化 */
-  }
+  })
 }
 
 /**
  * 挂载检视器；重复调用幂等（已挂载则复用）
+ * @param storage 宿主注入的异步存储（读取位置存档，本文件不直连存储）
  * @returns 卸载函数
  */
-export function mountLayerInspector(): () => void {
+export async function mountLayerInspector(
+  storage: LayerInspectorStorage
+): Promise<() => void> {
   const alive = document.querySelector<HTMLElement>(`.${PREFIX}-host`)
   if (alive) {
     return () => alive.remove()
   }
+
+  const savedPos = await readPos(storage)
 
   const host = document.createElement("div")
   host.className = `${PREFIX}-host`
@@ -429,7 +440,7 @@ export function mountLayerInspector(): () => void {
   let level = 0
   /** 隐藏方向：默认由内向外（先撤最靠前的层），⇄ 切成由外向内（从 html/body 起） */
   let reversed = true
-  let pos = readPos()
+  let pos = savedPos
   /** 复制反馈定时器，卸载时统一清 */
   const timers = new Set<number>()
   /** 进行中的拖动收尾，卸载时调用 */
@@ -546,7 +557,7 @@ export function mountLayerInspector(): () => void {
           side: rect.left + rect.width / 2 < innerWidth / 2 ? "left" : "right",
           y: rect.top,
         }
-        savePos(pos)
+        savePos(storage, pos)
       } else {
         toggle()
       }

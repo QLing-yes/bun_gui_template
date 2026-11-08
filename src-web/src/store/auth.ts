@@ -32,8 +32,9 @@ export const useAuthStore = create<AuthState>()(
     }),
     {
       name: STORAGE_KEYS.auth,
-      // 落盘统一走 lib/storage 的按键防抖
+      // IndexedDB 异步适配器；水合由 AppBoot 统一触发
       storage: createJSONStorage(() => storageAdapter),
+      skipHydration: true,
       // 每次加载都收敛一遍，挡住手改存储塞进来的非字符串
       merge: (persisted, current) => ({
         ...current,

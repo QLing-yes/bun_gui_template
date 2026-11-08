@@ -57,6 +57,7 @@
         "animejs": "^4.5.0",
         "class-variance-authority": "^0.7.1",
         "cn": "^0.5.2",
+        "dexie": "^4.4.7",
         "lucide-react": "^1.63.0",
         "react": "^19.3.1",
         "react-dom": "^19.3.1",
@@ -691,6 +692,8 @@
     "deuri": ["deuri@3.0.1", "https://registry.npmmirror.com/deuri/-/deuri-3.0.1.tgz", {}, "sha512-IUgdopWhjToYbgpYDe3ZCBdzILexypCTCEakqDGQyKSlayxWL7yonY/zeJL9ICIjwVmAm3cpiAyT64rBn34gGg=="],
 
     "devlop": ["devlop@1.1.0", "https://registry.npmmirror.com/devlop/-/devlop-1.1.0.tgz", { "dependencies": { "dequal": "^2.0.0" } }, "sha512-RWmIqhcFf1lRYBvNmr7qTNuyCt/7/ns2jbpp1+PalgE/rDQcBT0fioSMUpJ93irlUhC5hrg4cYqe6U+0ImW0rA=="],
+
+    "dexie": ["dexie@4.4.7", "https://registry.npmmirror.com/dexie/-/dexie-4.4.7.tgz", {}, "sha512-wemFiCl3DTCnfzyqepUTX1ugbYbkTrw3aEZOG7YjAOUoEQB5g5PrEywPzk5JpbX/SxqQ9IvjUpxCDIEjoOWEfA=="],
 
     "diff": ["diff@8.0.4", "https://registry.npmmirror.com/diff/-/diff-8.0.4.tgz", {}, "sha512-DPi0FmjiSU5EvQV0++GFDOJ9ASQUVFh5kD+OzOnYdi7n3Wpm9hWWGfB/O2blfHcMVTL5WkQXSnRiK9makhrcnw=="],
 

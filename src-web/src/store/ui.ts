@@ -194,8 +194,9 @@ export const useUiStore = create<UiState>()(
       name: STORAGE_KEYS.ui,
       version: 4,
       migrate: readUiData,
-      // 落盘统一走 lib/storage 的按键防抖，滑杆拖动期不再逐帧同步写
+      // IndexedDB 异步适配器；水合由 AppBoot 在数据库装载完成后显式触发，避免默认值先渲染再跳变
       storage: createJSONStorage(() => storageAdapter),
+      skipHydration: true,
       // merge 每次加载都跑（migrate 只在版本变化时跑），同版本的手改脏值也在这里挡住
       merge: (persisted, current) => ({ ...current, ...readUiData(persisted) }),
     }

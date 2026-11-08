@@ -19,9 +19,11 @@ import {
 } from "@xyflow/react"
 import "@xyflow/react/dist/style.css"
 
+import { FILL_CLASS } from "@/components/layout/class-names"
 import { useTheme } from "@/components/theme-provider"
 import { Button } from "@/components/ui/button"
 import { StepNodeView, type StepNode } from "@/components/flow/step-node"
+import { cn } from "cn"
 
 /** 节点类型注册表（模块级常量，避免每轮重建引用） */
 const nodeTypes = { step: StepNodeView } satisfies NodeTypes
@@ -102,7 +104,7 @@ function FlowCanvas() {
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
+    <div className={cn(FILL_CLASS, "flex flex-col")}>
       <div className="flex items-center justify-between gap-3 px-4 py-3 sm:px-6">
         <div className="min-w-0 flex-1 text-sm text-muted-foreground">
           React Flow 示例：拖动节点、从右侧圆点拉线连接、滚轮缩放

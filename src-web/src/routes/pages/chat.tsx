@@ -12,6 +12,8 @@ import { memo, useMemo, useState } from "react"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 
+import { FILL_CLASS } from "@/components/layout/class-names"
+import { PageCanvas } from "@/components/layout/page-canvas"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { StaggerReveal } from "@/components/stagger-reveal"
 import { Bubble, BubbleContent } from "@/components/ui/bubble"
@@ -39,7 +41,10 @@ import {
 } from "@/components/ui/message-scroller"
 import { Trace, TraceIcon, TraceLine, TraceTitle } from "@/components/ui/trace"
 import { createChatTransport } from "@/lib/chat"
-import { PageCanvas } from "@/components/layout/page-canvas"
+import { cn } from "cn"
+
+/** 对话消息流与输入条共用的定宽列（两侧内边距由各自补充） */
+const CHAT_COLUMN_CLASS = "mx-auto w-full max-w-2xl"
 
 /** 提取服务端错误的可读文案（优先 JSON error 字段）
  * @param message 原始错误文本 @returns 展示文本 */
@@ -183,7 +188,7 @@ export function ChatPage() {
 
   return (
     <PageCanvas>
-      <div className="flex h-full min-h-0 flex-col">
+      <div className={cn(FILL_CLASS, "flex flex-col")}>
         {messages.length === 0 ? (
           <div className="flex flex-1 items-center justify-center p-4 sm:p-6">
             <StaggerReveal>
@@ -204,7 +209,9 @@ export function ChatPage() {
           <MessageScrollerProvider>
             <MessageScroller className="flex-1">
               <MessageScrollerViewport>
-                <MessageScrollerContent className="mx-auto w-full max-w-2xl px-4 py-6 sm:px-6">
+                <MessageScrollerContent
+                  className={cn(CHAT_COLUMN_CLASS, "px-4 py-6 sm:px-6")}
+                >
                   {messages.map((message) => (
                     <MessageScrollerItem
                       key={message.id}
@@ -238,7 +245,12 @@ export function ChatPage() {
           </MessageScrollerProvider>
         )}
 
-        <div className="mx-auto flex w-full max-w-2xl flex-col gap-2 px-4 pb-4 sm:px-6 sm:pb-6">
+        <div
+          className={cn(
+            CHAT_COLUMN_CLASS,
+            "flex flex-col gap-2 px-4 pb-4 sm:px-6 sm:pb-6"
+          )}
+        >
           {error && (
             <StaggerReveal>
               <Alert variant="destructive">

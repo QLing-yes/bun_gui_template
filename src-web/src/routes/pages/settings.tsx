@@ -3,16 +3,23 @@
 // 快捷键数据源为 shortcuts/registry（单一来源）
 
 import { KeyboardIcon, PaletteIcon, RotateCcwIcon } from "lucide-react"
-import { Fragment, useEffect, useRef, useState } from "react"
-import type { ComponentType } from "react"
+import { Fragment, useEffect, useMemo, useRef, useState } from "react"
+import type { ComponentType, ReactNode } from "react"
 import { useSearchParams } from "react-router"
-import { useDefaultLayout } from "react-resizable-panels"
+import { useDefaultLayout, type LayoutStorage } from "react-resizable-panels"
 
-import { PAGE_PAD_CLASS } from "@/components/layout/class-names"
+import { FILL_CLASS, PAGE_PAD_CLASS } from "@/components/layout/class-names"
 import { PageCanvas } from "@/components/layout/page-canvas"
 import { ThemeMenu } from "@/components/layout/theme-menu"
 import { StaggerReveal } from "@/components/stagger-reveal"
 import { Button } from "@/components/ui/button"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
 import {
   Field,
   FieldDescription,
@@ -37,13 +44,15 @@ import {
 } from "@/components/ui/resizable"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
+import { Skeleton } from "@/components/ui/skeleton"
 import { Slider } from "@/components/ui/slider"
 import { Switch } from "@/components/ui/switch"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useIsMobile } from "@/hooks/use-mobile"
+import { usePersistedValue } from "@/hooks/use-storage"
 import { publishGlass } from "@/lib/glass-channel"
 import { publishRadius } from "@/lib/radius-channel"
-import { STORAGE_KEYS } from "@/lib/storage"
+import { SETTINGS_LAYOUT_KEY, STORAGE_KEYS, writeText } from "@/lib/storage"
 import { useWindowState } from "@/lib/tauri"
 import { effectiveShortcuts, entryText } from "@/shortcuts/registry"
 import {
@@ -351,6 +360,115 @@ function SectionPanel({ sec }: { sec: SectionRow }) {
   )
 }
 
+/** 宽档分栏：布局原文异步装载完成后才挂载，保证 useDefaultLayout 首次读取即为存档值 */
+function DesktopSettingsTabs({
+  active,
+  onPick,
+  triggers,
+  panels,
+  initialLayout,
+}: {
+  /** 当前分区 */
+  active: SectionId
+  /** 切换分区 */
+  onPick: (value: unknown) => void
+  /** 导航触发器集合 */
+  triggers: ReactNode
+  /** 分区面板集合 */
+  panels: ReactNode
+  /** 已从 IndexedDB 读出的布局原文 */
+  initialLayout: string | null
+}) {
+  /** 布局原文镜像；react-resizable-panels 只认同步存储，读写仍统一经持久化门面 */
+  const rawRef = useRef<string | null>(initialLayout)
+  /** 内存存储适配器：读返回已装载原文，写回镜像并异步落库 */
+  const storage = useMemo<LayoutStorage>(
+    () => ({
+      getItem: () => rawRef.current,
+      setItem: (_key, value) => {
+        rawRef.current = value
+        void writeText(SETTINGS_LAYOUT_KEY, value)
+      },
+    }),
+    []
+  )
+  /** 分栏布局持久化（仅用户拖动才写） */
+  const layout = useDefaultLayout({
+    id: STORAGE_KEYS.settingsLayout,
+    onlySaveAfterUserInteractions: true,
+    storage,
+  })
+
+  return (
+    <PageCanvas>
+      <Tabs
+        orientation="vertical"
+        value={active}
+        onValueChange={onPick}
+        className={cn(FILL_CLASS, "gap-0")}
+      >
+        <ResizablePanelGroup
+          orientation="horizontal"
+          defaultLayout={layout.defaultLayout}
+          onLayoutChanged={layout.onLayoutChanged}
+          className={FILL_CLASS}
+        >
+          <ResizablePanel
+            id="settings-nav"
+            defaultSize={NAV_DEFAULT}
+            minSize={NAV_MIN}
+            maxSize={NAV_MAX}
+          >
+            <TabsList
+              variant="line"
+              className="h-full w-full items-start justify-start p-3"
+            >
+              {triggers}
+            </TabsList>
+          </ResizablePanel>
+          {/* 手柄线由 index.scss 的 [data-slot=resizable-handle]::before 绘制（CLI 包装不渲染 children） */}
+          <ResizableHandle className="cursor-col-resize border-0 bg-transparent" />
+          <ResizablePanel id="settings-content" className="min-w-0">
+            {panels}
+          </ResizablePanel>
+        </ResizablePanelGroup>
+      </Tabs>
+    </PageCanvas>
+  )
+}
+
+/** 分栏布局读取中的局部区块骨架 */
+function SettingsLayoutSkeleton() {
+  return (
+    <PageCanvas>
+      <div className={cn("flex flex-col gap-4", PAGE_PAD_CLASS)}>
+        <Skeleton className="h-7 w-40" />
+        <Skeleton className="h-10 w-full max-w-md" />
+        <Skeleton className="h-48 w-full" />
+      </div>
+    </PageCanvas>
+  )
+}
+
+/** 分栏布局读取失败：给出原因与重试入口，不静默留空白 */
+function SettingsLayoutError({ onRetry }: { onRetry: () => void }) {
+  return (
+    <PageCanvas>
+      <div className={PAGE_PAD_CLASS}>
+        <Card className="max-w-md">
+          <CardHeader>
+            <CardTitle>布局读取失败</CardTitle>
+            <CardDescription>本地分栏布局暂时无法读取，可重试或继续使用默认宽度。</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button onClick={onRetry}>重试</Button>
+          </CardContent>
+        </Card>
+      </div>
+    </PageCanvas>
+  )
+}
+
 export function SettingsPage() {
   /** 分区状态以 URL 查询参数为唯一事实（侧栏可直接 `?section=personalize` 深链进入） */
   const [params, setParams] = useSearchParams()
@@ -361,11 +479,8 @@ export function SettingsPage() {
     setParams({ section: String(v) }, { replace: true })
   /** 窄档竖排堆叠、宽档可拖分栏；同一时刻只挂载一个 TabsList，故 Tabs 根不重复 */
   const isMobile = useIsMobile()
-  /** 分栏布局持久化（键为 react-resizable-panels:<id>，仅用户拖动才写） */
-  const layout = useDefaultLayout({
-    id: STORAGE_KEYS.settingsLayout,
-    onlySaveAfterUserInteractions: true,
-  })
+  /** 宽档分栏布局原文：异步门面读取，加载态/失败态由钩子状态驱动 */
+  const layout = usePersistedValue(SETTINGS_LAYOUT_KEY)
 
   /** 导航触发器集合（两档布局共用） */
   const triggers = sections.map((sec) => (
@@ -392,7 +507,7 @@ export function SettingsPage() {
         <Tabs
           value={active}
           onValueChange={pick}
-          className="h-full min-h-0 gap-0"
+          className={cn(FILL_CLASS, "gap-0")}
         >
           <TabsList variant="line" className="justify-start px-3">
             {triggers}
@@ -404,40 +519,18 @@ export function SettingsPage() {
     )
   }
 
+  if (layout.loadStatus === "loading") return <SettingsLayoutSkeleton />
+  if (layout.loadStatus === "error") {
+    return <SettingsLayoutError onRetry={layout.retry} />
+  }
+
   return (
-    <PageCanvas>
-      <Tabs
-        orientation="vertical"
-        value={active}
-        onValueChange={pick}
-        className="h-full min-h-0 gap-0"
-      >
-        <ResizablePanelGroup
-          orientation="horizontal"
-          defaultLayout={layout.defaultLayout}
-          onLayoutChanged={layout.onLayoutChanged}
-          className="h-full min-h-0"
-        >
-          <ResizablePanel
-            id="settings-nav"
-            defaultSize={NAV_DEFAULT}
-            minSize={NAV_MIN}
-            maxSize={NAV_MAX}
-          >
-            <TabsList
-              variant="line"
-              className="h-full w-full items-start justify-start p-3"
-            >
-              {triggers}
-            </TabsList>
-          </ResizablePanel>
-          {/* 手柄线由 index.scss 的 [data-slot=resizable-handle]::before 绘制（CLI 包装不渲染 children） */}
-          <ResizableHandle className="cursor-col-resize border-0 bg-transparent" />
-          <ResizablePanel id="settings-content" className="min-w-0">
-            {panels}
-          </ResizablePanel>
-        </ResizablePanelGroup>
-      </Tabs>
-    </PageCanvas>
+    <DesktopSettingsTabs
+      active={active}
+      onPick={pick}
+      triggers={triggers}
+      panels={panels}
+      initialLayout={layout.value}
+    />
   )
 }

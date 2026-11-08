@@ -66,24 +66,37 @@ export async function isAlwaysOnTop(): Promise<boolean> {
 /** DWM 着色（任务栏缩略图/Alt-Tab 框）只在 Windows 有意义；mac/linux 传原生明暗会改写 prefers-color-scheme，故只在 Windows 动手 */
 let isWindowsShell = isTauri && /Windows/i.test(navigator.userAgent)
 
-// 平台真源是 Rust cfg（UA 只兜到首帧解析回来之前）；纠正后按当前 class 补同步一次
+/** 最近一次应用请求的原生明暗（null＝跟随系统）；平台纠正后据此补同步，不按当前 class 猜模式 */
+let nativeTheme: boolean | null = null
+
+/** 下发原生明暗：null 交还给系统（tao 会持续跟踪 OS 并同步 WebView2 的 prefers-color-scheme） */
+function applyNativeTheme(): void {
+  const theme = nativeTheme === null ? null : nativeTheme ? "dark" : "light"
+  if (import.meta.env.DEV) {
+    console.debug("[tauri] native theme", { theme, windows: isWindowsShell })
+  }
+  void appWindow?.setTheme(theme).catch(() => {})
+}
+
+// 平台真源是 Rust cfg（UA 只兜到首帧解析回来之前）；纠正后按最近一次请求补同步一次
 if (isTauri) {
   invoke<string>(IPC.shellPlatform)
     .then((os) => {
       const windows = os === "windows"
       if (windows === isWindowsShell) return
       isWindowsShell = windows
-      if (windows)
-        setWindowTheme(document.documentElement.classList.contains("dark"))
+      if (windows) applyNativeTheme()
     })
     .catch(() => {})
 }
 
 /** 同步窗口原生明暗（非 Windows / 浏览器为 no-op）
- * @param dark 是否深色 */
-export function setWindowTheme(dark: boolean): void {
+ * @param dark true=深色 false=浅色 null=跟随系统（必须传 null，否则 Windows 会把
+ *   WebView2 的 prefers-color-scheme 钉在显式值上，系统切换再也收不到 change） */
+export function setWindowTheme(dark: boolean | null): void {
+  nativeTheme = dark
   if (!isWindowsShell) return
-  void appWindow?.setTheme(dark ? "dark" : "light").catch(() => {})
+  applyNativeTheme()
 }
 
 // --------------------------------- sidecar 令牌 ---------------------------------

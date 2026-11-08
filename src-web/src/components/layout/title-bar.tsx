@@ -3,13 +3,10 @@
 import { ArrowLeftIcon, ArrowRightIcon } from "lucide-react"
 import { useNavigate } from "react-router"
 
-import { ChromeGroup } from "@/components/layout/chrome-group"
+import { ChromeActions, ChromeGroup } from "@/components/layout/chrome-group"
 import { IconAction } from "@/components/layout/icon-action"
 import { SidebarCycleTrigger } from "@/components/layout/sidebar-cycle-trigger"
-import { ThemeMenu } from "@/components/layout/theme-menu"
-import { WindowControls } from "@/components/layout/window-controls"
 import { WindowDragRegion } from "@/components/layout/window-drag-region"
-import { WindowPin } from "@/components/layout/window-pin"
 import { useHistoryNav } from "@/hooks/use-history-nav"
 
 export function TitleBar() {
@@ -41,12 +38,8 @@ export function TitleBar() {
       {/* 中间：拖动区域（左键拖动、双击切换最大化） */}
       <WindowDragRegion />
 
-      {/* 右侧：主题切换 + 窗口置顶 + 窗口控制（窗口按钮仅桌面端；no-drag 保持可点击） */}
-      <ChromeGroup side="right">
-        <ThemeMenu />
-        <WindowPin />
-        <WindowControls />
-      </ChromeGroup>
+      {/* 右侧：主题切换 + 窗口置顶 + 窗口控制（与登录页共用同一动作簇） */}
+      <ChromeActions />
     </header>
   )
 }

@@ -4,7 +4,7 @@
 光标：注意根据场景和元素切换合适的光标样式。
 屏幕适配：注意需要兼容不同设备屏幕尺寸（如手机、平板、PC 等尺寸），避免在不同设备上显示异常。
 滚动归属：禁止整窗/文档级滚动（html/body/#root overflow 恒 hidden，见 index.scss 裁切规则），滚动只允许区域级容器——壳内一律官方 ScrollArea，AppShell 之外的全屏页自带 `h-svh overflow-y-auto` 滚动盒；禁止调用 `window.scrollTo`/`documentElement.scrollTop` 等文档滚动 API，也不得用 min-h-svh 把撑高推给文档。
-状态持久化：你可以自行判断任何状态是否需要持久化。持久化键一律登记在 `lib/storage.ts`（值一经发布不可再改，改了等于丢用户数据），组件与 store 里禁止写键名字面量；裸值读写只走该模块的 `readText`/`writeText`（按键防抖落盘，`flushStorage`/`writeTextNow` 可立即写，页面隐藏/卸载/关窗前自动 flush；隐私模式/配额失败自带容错），zustand persist 一律经 `storageAdapter` 接入同一层防抖；第三方库自管的键只做索引登记、不反向接管（`dev/layer-inspector.ts` 零依赖单文件是唯一豁免）。
+状态持久化：全模块唯一持久化层是 `lib/storage.ts`（Dexie/IndexedDB：库定义、表与索引、幂等迁移、异步读写、按表批量提交、重试、跨窗口同步都在此）。持久化键一律登记在 `STORAGE_KEYS`（值一经发布不可再改，改了等于丢用户数据），组件与 store 里禁止写键名字面量；读写只走异步 `readText`/`writeText`（`writeText(key, value, { immediate: true })` 可跳防抖，`flushStorage` 立即批量提交，页面隐藏/卸载自动 flush；内存为真源，失败降级为 pending/error 并重试），zustand persist 一律经 `storageAdapter` + `skipHydration`，由 `components/app-boot.tsx` 在库装载后统一水合；页面读取的加载/保存态走 `hooks/use-storage.ts`；禁止直连 IndexedDB/localStorage/sessionStorage（ESLint 兜底，仅门面保留首次历史导入与主题首帧 cookie）；第三方库自管的键只做索引登记、不反向接管（`dev/layer-inspector.ts` 零依赖单文件经注入存储是唯一豁免）。
 体验优化: 合适场景主动优化应用体验（视觉、转场、反馈、手感…），按场景挑选最合适的实现方式；取向优先 View Transitions 与 anime.js，细则见 src-web/AGENTS.md「动效与体验优化」。
 动画局部性: 动画只动组件/内容块，禁止整窗位移与整页淡入淡出；切页一律用内容区轨道平移（轮播式，靠 `layout/page-track.tsx` 的 DOM 轨道实现，标题栏与侧栏不参与，非当前页冻结保活），主题切换是唯一允许全屏呈现的动画。
 
@@ -50,7 +50,7 @@ Tailwind：
 - 主题必须同时声明 UA 着色方案：`html{color-scheme:light}` / `html.dark{color-scheme:dark}`。主干透明 ⇒ 整窗圆角、Win11 窗口圆角等「未被自绘覆盖」的像素由 UA 默认画布填充，缺它暗色下顶边整条发白（滚动条/表单控件也恒亮）。
 - 窗口描边归 web：conf 已关 `decorations` 与 `shadow`，OS 不画线也不画阴影 → 壳根末尾 `[data-app-edge]` 用 `--edge` 自绘 1px inset 描边（半径取 `--app-radius` 通道值、`pointer-events:none`、仅桌面渲染）。已知差异：悬浮侧栏 peek 是 body Portal（z-50），展开时压住左缘那 1px。缩放热区为窗口最外约 4 CSS px（`SM_CXFRAME/CYFRAME`），贴边可点控件一律留 ≥8px——现有标题栏/侧栏内缩已满足，纵向滚动条贴右缘属已知风险点。
 - 圆角单源：四角半径是**用户设置**（`store/ui.ts` 的 `corners`，0–`RADIUS_MAX`，0=直角，默认 7），`lib/radius-channel.publishRadius(corners, maximized)` 只把它合成一组值写进文档根 `--app-radius`（桌面与 web 输出同一套值，只有最大化归零）；形状与裁切是 index.scss 的一条静态规则 `html, body{border-radius:var(--app-radius);overflow:hidden;transition:border-radius 160ms}`，无属性标记、无 JS 挂标记。两层同值的前提是**盒完全重合**（body 由 preflight 去 margin，与 html 同原点同尺寸）——原点不同的两层（壳根、页面根）一律禁止再画圆角，两层矩形相交会把不到 1px 的框偏差放大成逐角递减的弧，组件内也禁止写 inline `borderRadius`。web 档同样裁切（露出的是 UA 画布色，不是桌面）。`[data-app-edge]` 描边与 `::view-transition` 底色层读同一变量只用于画线/画底，不额外裁切。禁止另起一条 Rust 圆角链路：Win11 那圈约 8px 系统裁切已由 Rust setup 设 `DWMWCP_DONOTROUND` 关掉，曲线彻底归 CSS。
-- 主题落地时同步一次原生明暗 `lib/tauri.setWindowTheme(dark)`（仅 Windows，供 DWM 缩略图/Alt-Tab 着色；mac/linux 传明暗会污染 `prefers-color-scheme` 判定）。
+- 主题落地时同步一次原生明暗 `lib/tauri.setWindowTheme(dark | null)`（仅 Windows，供 DWM 缩略图/Alt-Tab 着色；mac/linux 传明暗会污染 `prefers-color-scheme` 判定）。**跟随系统档必须传 `null`**——传显式值会被 Tauri/tao 写进 WebView2 的 `PreferredColorScheme`，页面 `prefers-color-scheme` 被钉死、系统换色事件收不到。
 - 背景是页面级资产：每页自带 `<PageCanvas>`（衬层 bg-shell 壳色+噪点晕染、内容面半透壳色 76% + blur12 磨砂、左上内圆角走 `--surface-radius` 令牌、top-titlebar 让位标题栏带；点状 `.bg-dots` 与光晕 `.bg-gradient` 仅登录页（光晕是 `public/bgrgb.png` 位图，由 `.bg-gradient` 类引用），流程页用 React Flow 自带 Background；内容面的着色/磨砂/内圆角都在 index.scss 契约条目 3，组件里只写定位与 left）。锚点由本模块自持（`CanvasAnchor` 组件 + 模块内槽位 + useSyncExternalStore，不用 context/ref 转发），AppShell 只在壳根摆出锚点节点（absolute inset-0 -z-10 全窗），画布 createPortal 铺满含标题栏带——Portal 是绕开 `contain:paint` 封锁的既定手段，行 contain 不变量勿动。路由轨道保活多页时画布只归当前页（`CanvasOwner`，非当前页不铺）——内容面是半透的，叠两层壳色就比一层浓。
 - 内容面偏移是 JS 事实：`page-canvas.surfaceLeft(mode, desktop)` 返回 `var(--sidebar-width)`/`var(--sidebar-width-icon)`/`0px` 并直写 style，index.scss 只留过渡与着色；不再挂 `data-sidebar-mode`，也没有 CSS 侧的三态分支。
 - 允许着色层白名单：页面画布两层（衬层两处径向晕染受 `--wash-a` 开关缩放，关到 0 即只剩壳色+噪点）、悬浮侧栏 peek（chrome 72%+blur18）、卡片/下拉菜单磨砂（--card/--popover 40%+blur24，全局规则挂 data-slot）、登录页自有根与光晕层（`.bg-gradient`）、dev-only 检视面板（dev/layer-inspector.ts，release 不挂载）。除此以外禁止任何作用于全应用的背景。
@@ -64,12 +64,12 @@ Tailwind：
 - 断点单源：`--breakpoint-md: 768px`（Tailwind `md:` 的实值）+ SCSS 媒体查询写 768px + `hooks/use-mobile.ts` 的 768，三处同值，改断点必须三处一起动（JS 与 CSS 无法共享变量，靠注释互指）。
 
 桌面窗口与主题切换：
-- 桌面端任何页面必须保留最小化/最大化/关闭三键：AppShell 之外的全屏路由（如登录页）需自带 WindowControls + 顶部拖动区；圆角无需自管——`main.tsx` 挂的 WindowRadius 对全路由统一发布通道值。
+- 桌面端任何页面必须保留最小化/最大化/关闭三键：AppShell 之外的全屏路由（如登录页）需自带 WindowControls + 顶部拖动区；圆角无需自管——`main.tsx` 挂的 WindowBootstrap 对全路由统一发布通道值。
 - 主题切换动画只用 index.scss 的纯 CSS 方向规则（`vt-circle-in/out` + `--vt-x/y/r`，由 lib/theme-transition.ts 写参触发）；禁止改回「.ready 后 WAAPI animate」模式——过渡被跳过/拒绝时静默无动画。切换一律走 `startThemeTransition({apply, rollback, x, y})`：事务模块负责失败回滚与无 VT 降级，调用方只描述「切到哪」和「怎么退回」，禁止自己调 `setTheme` 再另起过渡。
 - 明暗是**三选项**（浅色/深色/跟随系统，存储值 `light`/`dark`/`system`）：选项表与切换事务唯一在 `hooks/use-theme-switch.ts`（`THEME_ROWS` + `useThemeSwitch()`），控件统一用 `components/option-switch.tsx`，**四处入口的接线统一经 `layout/theme-menu.tsx`**（标题栏与登录页顶栏窄档、设置页个性化带文案、侧栏用户菜单内嵌同一控件，靠 `onSlideDone`/`settleExtraMs`/`skipSame` 表达差异）。新增一档只改 `THEME_ROWS`，禁止在各入口再写一份文案/图标、各自调 `switchTo` 或自行起过渡；生效明暗没变（如浅色下选「跟随系统」而系统也是浅色）只落状态、不跑全屏动画。圆角判据：轨道固定 32px（模块常量，不可调），游标恒半圆端（给哨兵大值交由浏览器按自身半高截断），故两者不严格同心——属已确认取舍。形状只由「轨道 + 游标」两层表达：选项按钮必须保持透明（`aria-pressed` 底色要抵消），**不得用 `rounded-*` 自绘**；将来若给按钮留底色，必须写与游标同值的内联圆角，否则两层不同步。
 - 游标滑行与主题切换**必须串行**：`switchTo(next, origin, settleMs)` 的第三参传组件导出的 `SLIDE_MS`（时长真值只在 `option-switch.tsx` 一处，页面不得另写数字）。等待判据是**游标自己的 `transitionend`（propertyName 为 transform）**，`SLIDE_MS + 150ms` 只当兜底上限——纯定时器会因掉帧、后台标签页停帧、过渡被浏览器跳过而与真实结束时刻错位，观感就是「卡一下」或「慢半拍」；`prefers-reduced-motion` 下 CSS 压平仍会派发 `transitionend`，等待自然归零，无需特判。生效明暗没变的那条路径不等动画，直接落状态。菜单内嵌那处两个条件都要满足：`switchTo(next, at, SLIDE_MS, MENU_CLOSE_MS)` 的第四个参数是「滑行结束后再等浮层收掉」的下限，收菜单本身排在 `SLIDE_MS` 上——单靠上限定时器会过早拍快照，把半开的菜单冻进旧画面。
 - View Transition 期间文档渲染被快照树替换，`::view-transition` 必须保留 `var(--shell)` 兜底底色，否则透明窗口直接透见桌面；该底色矩形还要 `border-radius: var(--app-radius)`（圆角通道由 `lib/radius-channel` 单点写入），否则明暗切换的 300ms 里四角被填成尖角。
-- 窗口出场时机归本模块：`layout/window-reveal.tsx` 在首屏 useEffect 里发 `reveal_window`（还原+显示+聚焦全在 Rust 一侧做完）。禁止改用 rAF/`onload` 等帧信号触发——窗口启动即最小化，WebView2 停帧时 rAF 永不回调，窗口会卡在不显示。
+- 窗口出场时机归本模块：`layout/window-bootstrap.tsx` 在首屏 useEffect 里发 `reveal_window`（还原+显示+聚焦全在 Rust 一侧做完）。禁止改用 rAF/`onload` 等帧信号触发——窗口启动即最小化，WebView2 停帧时 rAF 永不回调，窗口会卡在不显示。
 - 新增主题：在 html 层用类覆盖 CSS 变量（必须含 `--shell`），动画链路零改动即生效；html class 必须在 `startThemeTransition` 的回调内同步落，方向由目标是否带 `.dark` 决定。反馈分层：按钮图标/提示归调用方的乐观档（点击当帧生效），切换事务排到下一个任务——禁止在回调里 `flushSync` 整棵树（会把同步渲染压到快照捕获之前，更卡）。
 
 动效与体验优化：
@@ -97,12 +97,12 @@ Tailwind：
 
 目录规范：按职责独立成目录，互不越界。
 - `components/ui/`：shadcn CLI 生成的组件（勿手改，走 CLI 更新；已知例外见 STRUCTURE.md 的 ui/ 行）。次选 `@ai-elements` 条目是 `registry:component` 类型，按 CLI 归位落在 `components/` 别名下（**不进 `ui/`**），同样属 CLI 生成件、同样勿手改，更新走 CLI。
-- `components/layout/`：应用外壳布局（app-shell/page-canvas/page-track/page-skeleton/class-names/chrome-group/icon-action/title-bar/sidebar-body/sidebar-nav/sidebar-user/sidebar-cycle-trigger/sidebar-peek/sidebar-resizer/window-*（controls/drag-region/pin/radius/reveal））。
-- `components/*.tsx`：业务组件与通用外壳件（theme-provider、stagger-reveal=错峰入场容器）。
+- `components/layout/`：应用外壳布局（app-shell/page-canvas/page-track/class-names/chrome-group/icon-action/title-bar/sidebar-body/sidebar-user/sidebar-cycle-trigger/sidebar-peek/sidebar-resizer/theme-menu/window-*（controls/drag-region/pin/bootstrap））。
+- `components/*.tsx`：业务组件与通用外壳件（brand-logo、page-card=单卡片演示页骨架、option-switch=分段/开关通用控件、theme-provider、stagger-reveal=错峰入场容器、storage-status-toast=落库失败全局轻提示）。
 - `routes/`：路由表 `router.tsx` + 外壳子页表 `registry.ts`（页面归属、`handle.motion` 动效档、`handle.nav` 侧栏导航元数据的唯一声明处；`navItems` 由该表派生）+ 页面 `pages/`。
 - `store/`：zustand 持久化状态（ui/auth）。
 - `hooks/`：通用 React hooks。
-- `lib/`：`tauri/`（IPC 命令与事件常量表 + 窗口能力）、`backend.ts`（后端形态/地址/鉴权头单源）、`api.ts`·`chat.ts`（消费 backend）、`sidebar-channel.ts`（宽度通道）、`glass-channel.ts`（个性化旋钮通道：磨砂两项 + 背景渐变）、`radius-channel.ts`（四角圆角通道）、`motion.ts`（动效单源：时长/缓动/错峰档 + 入场编排，anime.js 唯一入口）、`route-history.ts`（历史位置：历史穿越方向与前进后退可用性的唯一来源）、`storage.ts`（持久化键登记 + 容错读写单源）、`theme-transition.ts`。网络请求与令牌注入、localStorage 键名禁止在页面里各写一份。
+- `lib/`：`tauri/`（IPC 命令与事件常量表 + 窗口能力）、`backend.ts`（后端形态/地址/鉴权头单源）、`api.ts`·`chat.ts`（消费 backend）、`sidebar-channel.ts`（宽度通道）、`glass-channel.ts`（个性化旋钮通道：磨砂两项 + 背景渐变）、`radius-channel.ts`（四角圆角通道）、`motion.ts`（动效单源：时长/缓动/错峰档 + 入场编排，anime.js 唯一入口）、`route-history.ts`（历史位置：历史穿越方向与前进后退可用性的唯一来源）、`storage.ts`（Dexie/IndexedDB 持久化唯一门面：表/索引/迁移/异步读写/批量提交/重试/跨窗口同步/首帧主题 cookie）、`store-sync.ts`（跨窗口 store 同步唯一登记处：持久化键 → store 灌入，未登记键开发环境告警）、`theme-transition.ts`。网络请求与令牌注入、localStorage 键名禁止在页面里各写一份。
 - `shortcuts/`：`registry.ts` 是快捷键唯一来源（combo 结构 + 类别 + 生效端；`comboText/entryText` 派生展示、`comboMatches` 供匹配），`webview.ts` 按清单安装 block/hotkey，`sidebar-hotkey.ts` 只挂三态循环。新增热键/拦截必须进清单，否则设置页漏项。主题切换无热键，仅菜单触发。
 - `styles/`：额外全局样式（typeset.scss）。
-架构边界（eslint 强制）：Tauri IPC 仅在 `lib/tauri/`；Eden 仅在 `lib/api.ts`；fetch 仅在 `lib/chat.ts`（AI SDK transport 注入鉴权头）；其余代码禁止裸 `fetch`。
+架构边界（eslint 强制）：Tauri IPC 仅在 `lib/tauri/`；Eden 仅在 `lib/api.ts`；fetch 仅在 `lib/chat.ts`（AI SDK transport 注入鉴权头）；Dexie/IndexedDB、localStorage/sessionStorage 与 `document.cookie` 仅在 `lib/storage.ts`；其余代码禁止裸 `fetch` 与直接存储。

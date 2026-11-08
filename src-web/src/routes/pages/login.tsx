@@ -6,12 +6,10 @@ import type { RefObject } from "react"
 import { useNavigate } from "react-router"
 
 import { BRAND_NAME, BrandLogo } from "@/components/brand-logo"
-import { ChromeGroup } from "@/components/layout/chrome-group"
+import { ChromeActions, ChromeGroup } from "@/components/layout/chrome-group"
 import { IconAction } from "@/components/layout/icon-action"
 import { ThemeMenu } from "@/components/layout/theme-menu"
-import { WindowControls } from "@/components/layout/window-controls"
 import { WindowDragRegion } from "@/components/layout/window-drag-region"
-import { WindowPin } from "@/components/layout/window-pin"
 import { StaggerReveal } from "@/components/stagger-reveal"
 import { Button } from "@/components/ui/button"
 import {
@@ -172,11 +170,7 @@ export function LoginPage() {
               <LoginBackButton />
             </ChromeGroup>
             <WindowDragRegion />
-            <ChromeGroup side="right">
-              <ThemeMenu />
-              <WindowPin />
-              <WindowControls />
-            </ChromeGroup>
+            <ChromeActions />
           </div>
         ) : (
           <>

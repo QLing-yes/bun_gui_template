@@ -6,9 +6,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>AIGC</title>
     <script>
-      // 首帧防主题闪烁：在样式加载前同步解析主题；未选过主题时默认浅色（与 ThemeProvider defaultTheme 同值）
+      // 首帧防主题闪烁：IndexedDB 异步读不到，样式加载前只解析极短 cookie 里的最近主题档位
+      // 未选过主题（或 cookie 非法）时默认跟随系统（与 ThemeProvider defaultTheme 同值）
       (function () {
-        var theme = localStorage.getItem("theme") || "light";
+        var match = document.cookie.match(/(?:^|; )aigc-theme=(light|dark|system)(?:;|$)/);
+        var theme = match ? match[1] : "system";
         var dark = theme === "dark" || (theme === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
         document.documentElement.classList.add(dark ? "dark" : "light");
       })();

@@ -25,12 +25,14 @@ import {
 } from "react-router"
 import type { Location } from "react-router"
 
-import { CanvasOwner } from "@/components/layout/page-canvas"
-import { PageSkeleton } from "@/components/layout/page-skeleton"
+import { PAGE_PAD_CLASS } from "@/components/layout/class-names"
+import { CanvasOwner, PageCanvas } from "@/components/layout/page-canvas"
 import { RevealPolicyProvider } from "@/components/stagger-reveal"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { Skeleton } from "@/components/ui/skeleton"
 import { observePath } from "@/lib/route-history"
 import { resolveRoute } from "@/routes/registry"
+import { cn } from "cn"
 
 /** 同时存活的页面槽上限（当前页 + 左右邻位各一） */
 const SLOT_MAX = 3
@@ -159,6 +161,18 @@ function SlotReady({
 }) {
   useEffect(() => onReady(slotKey), [slotKey, onReady])
   return null
+}
+
+/** 懒加载骨架：与页面同用 PageCanvas 衬底，避免切换瞬间只剩空白（仅本轨道的 Suspense 使用） */
+function PageSkeleton() {
+  return (
+    <PageCanvas>
+      <div className={cn("flex flex-col gap-4", PAGE_PAD_CLASS)}>
+        <Skeleton className="h-7 w-40" />
+        <Skeleton className="h-44 max-w-md rounded-lg" />
+      </div>
+    </PageCanvas>
+  )
 }
 
 /**

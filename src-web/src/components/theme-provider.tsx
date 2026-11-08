@@ -1,6 +1,6 @@
 import * as React from "react"
 
-import { readText, storageArea, STORAGE_KEYS, writeText } from "@/lib/storage"
+import { STORAGE_KEYS, subscribeStorageKey, writeText } from "@/lib/storage"
 import { setWindowTheme } from "@/lib/tauri"
 
 export type Theme = "dark" | "light" | "system"
@@ -9,6 +9,8 @@ type ResolvedTheme = "dark" | "light"
 type ThemeProviderProps = {
   children: React.ReactNode
   defaultTheme?: Theme
+  /** AppBoot 从 IndexedDB 读出的初始档位；非法或缺失时回落 defaultTheme */
+  initialTheme?: string | null
   /** 明暗偏好的存储键 */
   storageKey?: string
   disableTransitionOnChange?: boolean
@@ -67,18 +69,19 @@ function disableTransitionsTemporarily() {
 
 export function ThemeProvider({
   children,
-  defaultTheme = "light",
+  defaultTheme = "system",
+  initialTheme = null,
   storageKey = STORAGE_KEYS.theme,
   disableTransitionOnChange = true,
   ...props
 }: ThemeProviderProps) {
   const [theme, setThemeState] = React.useState<Theme>(() => {
-    const storedTheme = readText(storageKey)
-    if (isTheme(storedTheme)) {
-      return storedTheme
+    const resolved = isTheme(initialTheme) ? initialTheme : defaultTheme
+    if (import.meta.env.DEV) {
+      console.debug("[theme] init", { stored: initialTheme, mode: resolved })
     }
 
-    return defaultTheme
+    return resolved
   })
   const [systemDark, setSystemDark] = React.useState(
     () => getSystemTheme() === "dark"
@@ -100,8 +103,12 @@ export function ThemeProvider({
 
       root.classList.remove("light", "dark")
       root.classList.add(next)
-      // 顶边描边已由 web 自绘，这里只同步 OS 侧明暗（任务栏缩略图/DWM 着色）
-      setWindowTheme(next === "dark")
+      // 固定档才显式钉住窗口原生明暗；跟随系统必须交还 null：Windows 会把显式值写进
+      // WebView2 的 PreferredColorScheme，钉住后 prefers-color-scheme 不再随 OS 变化
+      setWindowTheme(nextTheme === "system" ? null : next === "dark")
+      if (import.meta.env.DEV) {
+        console.debug("[theme] apply", { mode: nextTheme, resolved: next })
+      }
 
       if (restoreTransitions) {
         restoreTransitions()
@@ -112,10 +119,14 @@ export function ThemeProvider({
 
   const setTheme = React.useCallback(
     (nextTheme: Theme) => {
-      writeText(storageKey, nextTheme)
+      // 异步落 IndexedDB；首帧提示 cookie 由存储门面同步刷新，下一次启动仍能立即定色
+      void writeText(storageKey, nextTheme)
       // class 必须在回调内同步落：新快照在本次回调返回后才捕获
       applyTheme(nextTheme)
       setThemeState(nextTheme)
+      if (import.meta.env.DEV) {
+        console.debug("[theme] persist", { mode: nextTheme })
+      }
     },
     [storageKey, applyTheme]
   )
@@ -125,6 +136,12 @@ export function ThemeProvider({
     applyTheme(theme)
     const mediaQuery = window.matchMedia(COLOR_SCHEME_QUERY)
     const handleChange = () => {
+      if (import.meta.env.DEV) {
+        console.debug("[theme] system-changed", {
+          mode: theme,
+          dark: mediaQuery.matches,
+        })
+      }
       setSystemDark(mediaQuery.matches)
       applyTheme(theme)
     }
@@ -136,30 +153,15 @@ export function ThemeProvider({
     }
   }, [theme, applyTheme])
 
-  React.useEffect(() => {
-    const handleStorageChange = (event: StorageEvent) => {
-      if (event.storageArea !== storageArea()) {
-        return
-      }
-
-      if (event.key !== storageKey) {
-        return
-      }
-
-      if (isTheme(event.newValue)) {
-        setThemeState(event.newValue)
-        return
-      }
-
-      setThemeState(defaultTheme)
-    }
-
-    window.addEventListener("storage", handleStorageChange)
-
-    return () => {
-      window.removeEventListener("storage", handleStorageChange)
-    }
-  }, [defaultTheme, storageKey])
+  // 跨窗口同步：其它窗口改了主题，经持久化门面广播回查后在此收敛（本窗口写入会回显同值，直接忽略）
+  React.useEffect(
+    () =>
+      subscribeStorageKey(storageKey, (next) => {
+        if (!isTheme(next)) return
+        setThemeState((current) => (next === current ? current : next))
+      }),
+    [storageKey]
+  )
 
   const value = React.useMemo(
     () => ({

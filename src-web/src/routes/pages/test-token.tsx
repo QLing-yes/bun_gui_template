@@ -2,17 +2,8 @@
 
 import { useState } from "react"
 
-import { PAGE_PAD_CLASS } from "@/components/layout/class-names"
-import { PageCanvas } from "@/components/layout/page-canvas"
-import { cn } from "cn"
+import { PageCard } from "@/components/page-card"
 import { Button } from "@/components/ui/button"
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
 import {
   CodeBlock,
   CodeBlockActions,
@@ -49,32 +40,25 @@ export function TestTokenPage() {
   }
 
   return (
-    <PageCanvas>
-      <div className={cn(PAGE_PAD_CLASS, "leading-loose")}>
-        <Card className="max-w-md">
-          <CardHeader>
-            <CardTitle>Sidecar 鉴权测试</CardTitle>
-            <CardDescription>验证桌面端 sidecar token 注入链路</CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-col items-start gap-4">
-            <Button variant="secondary" disabled={loading} onClick={testToken}>
-              {loading && <Spinner data-icon="inline-start" />}
-              测试 Token 调用 POST /success
-            </Button>
-            {result && (
-              <CodeBlock size="sm" className="w-full">
-                <CodeBlockHeader>
-                  <CodeBlockTitle>响应内容</CodeBlockTitle>
-                  <CodeBlockActions>
-                    <CodeBlockCopyButton value={result} />
-                  </CodeBlockActions>
-                </CodeBlockHeader>
-                <CodeBlockContent wrap>{result}</CodeBlockContent>
-              </CodeBlock>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-    </PageCanvas>
+    <PageCard
+      title="Sidecar 鉴权测试"
+      description="验证桌面端 sidecar token 注入链路"
+    >
+      <Button variant="secondary" disabled={loading} onClick={testToken}>
+        {loading && <Spinner data-icon="inline-start" />}
+        测试 Token 调用 POST /success
+      </Button>
+      {result && (
+        <CodeBlock size="sm" className="w-full">
+          <CodeBlockHeader>
+            <CodeBlockTitle>响应内容</CodeBlockTitle>
+            <CodeBlockActions>
+              <CodeBlockCopyButton value={result} />
+            </CodeBlockActions>
+          </CodeBlockHeader>
+          <CodeBlockContent wrap>{result}</CodeBlockContent>
+        </CodeBlock>
+      )}
+    </PageCard>
   )
 }
