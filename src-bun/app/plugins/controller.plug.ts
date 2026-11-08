@@ -1,3 +1,4 @@
+// controller路由范围内的插件导入到这里注册
 import { Elysia, ElysiaError, ValidationError } from "elysia";
 import * as $c from "@/app/common";
 import { logger } from "@/app/lib/logger";
@@ -45,7 +46,7 @@ export default new Elysia({ name: String($g.counter.n) })
   .onError("global", ({ error, request, set, ...p }) => {
     const err = error instanceof Error ? error : new Error(String(error));
     const errCode = error instanceof ElysiaError ? error.code : err.name;
-    // 人性化验证器错误信息
+    // 人性化验证器错误信息（只取第一个数据验证错误信息，已格式化处理）
     if (error instanceof ValidationError) {
       const property = error.all[0].path.replace(/^\//, "");
       err.message = `[${error.type}] ${property} : ${err.message}`;
