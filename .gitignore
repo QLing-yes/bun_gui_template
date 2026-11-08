@@ -1,0 +1,34 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+tsconfig.tsbuildinfo
+node_modules
+dist
+dist-ssr
+*.local
+
+# 本地环境变量（含数据库密码与 AI 密钥，不入库；模板见 .env.example）
+.env
+
+# 生成的 API 类型树（dev 时自动重建，不入库）
+src-web/types/
+# gen-api 临时 tsc 配置（强杀进程时残留，正常运行自清）
+.tsconfig.gen-api.tmp.json
+
+# Editor directories and files
+.vscode/*
+.agents/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?

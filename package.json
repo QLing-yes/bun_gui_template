@@ -1,0 +1,26 @@
+{
+  "name": "aigc",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun run ./scripts/dev.ts",
+    "build": "bun run ./scripts/build.ts",
+    "check:ipc": "bun run ./scripts/check_ipc.ts"
+  },
+  "workspaces": [
+    "src-bun",
+    "src-web"
+  ],
+  "devDependencies": {
+    "@tauri-apps/cli": "^2",
+    "@types/bun": "latest"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.12.4",
+    "@tauri-apps/plugin-shell": "~2"
+  },
+  "peerDependencies": {
+    "typescript": "^7"
+  }
+}

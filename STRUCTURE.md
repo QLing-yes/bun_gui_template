@@ -1,0 +1,159 @@
+# 目录结构索引
+
+> 本文件是全项目「目录 → 文件 → 职责」索引。**任何文件增删、移动、目录职责变化必须同一提交内更新本文件**（规则锚点在根 AGENTS.md）。
+> 定位：索引，不是规范——规则看各模块 AGENTS.md，踩坑看 EXPERIENCES.md。条目一行一条，写职责不写实现。
+
+## 总览
+
+```
+bun_gui_template/
+├── scripts/          # 根编排脚本（dev/build/tauri 配置注入）
+├── src-bun/          # Bun + Elysia 后端（sidecar 与服务器部署两形态）
+├── src-web/          # React + Vite 前端（web 与桌面 WebView 共用）
+├── src-tauri/        # Tauri v2 桌面壳（Rust）
+├── .agents/skills/   # Agent 技能（shadcn 等，CLI 维护）
+├── .vscode/          # 编辑器配置（类常量命名提示等）
+├── .env              # 环境变量单一来源（新增/修改后必须重启根 dev）
+├── AGENTS.md         # 全局规则 + 分发/平台基线
+├── EXPERIENCES.md    # 跨模块经验沉淀
+└── STRUCTURE.md      # 本文件
+```
+
+三模块互不牵扯，各自内部管理；跨模块契约见文末速查表。
+
+## scripts/
+
+- `dev.ts` — 并行拉起各模块 dev 进程；启动时固定 process.env 传子进程；tauri dev 带 `--features devtools`
+- `build.ts` — 生产构建编排（先 `check_ipc` 闸门，再 config → web/bun 并行 → tauri → dist）
+- `config.ts` — 向 tauri.conf.json 注入 devUrl / externalBin（NODE_ENV=production 才注 sidecar；内容未变不落盘，避免 tracked 文件恒脏）
+- `check_ipc.ts` — IPC 契约漂移检查：Rust `#[tauri::command]`/`generate_handler!`/`emit` 与 src-web `IPC`·`IPC_EVENT` 常量表逐条比对，漂移即退出非零
+- `spawn.ts` — 子进程启动公共封装
+
+## src-web/（React 19 + Vite + Tailwind v4 + shadcn base-ui + zustand + react-router/hash）
+
+根配置：
+- `vite.config.ts` — react 插件；Tailwind 走 `css.postcss`（样式入口是 .scss，vite 插件模式会漏编译）
+- `components.json` — shadcn CLI（css→src/index.scss；registry 组件的 cn 直接落 `cn` 包，无 lib/utils 落点）
+- `eslint.config.js` — 含架构边界强制：IPC 仅 `lib/tauri/`、Eden 仅 `lib/api.ts`、fetch 仅 `lib/chat.ts`
+- `index.html` — 入口 + favicon
+
+src/：
+- `main.tsx` — 挂载入口：引全局样式、输入守卫、sidecar 退出监听、`<TooltipProvider/>`（全路由单实例，登录页与主壳共用）、`<WindowRadius/>` 圆角通道、`<WindowReveal/>` 出场时机
+- `index.scss` — 全局样式单一入口：Tailwind 引入、主题令牌(:root/.dark 含 --shell/--edge/--separator/--chrome-*/--nav-idle/--line-h|--line-v/侧栏宽度通道默认值/--app-radius 兜底/--surface-radius 内容面内圆角/--glass-blur·--film-a·--wash-a 个性化旋钮兜底/--push-duration·--ease-push 切页平移)、窗口钩子 `html, body`（圆角与裁切静态规则，值取 `--app-radius`）·`[data-app-edge]`（描边层）、`@theme`（--breakpoint-md=768px、--spacing-titlebar=2.5rem）、「注册表覆写契约」索引节（升级 CLI 前按该清单复查）、VT 圆形揭示、基础层
+- `assets/` — 打包静态资源；`public/logo.svg` — 品牌 logo（favicon/侧栏/登录共用，明暗自适应）；`public/bgrgb.png` — 登录页光晕位图（`.bg-gradient` 类引用）
+- `styles/typeset.scss` — Markdown 排版样式
+
+components/：
+- `ui/` — shadcn CLI 生成，勿手改（已知例外：sidebar.tsx 删 cookie 写入与内置 Ctrl+B、不再 inline 宽度变量；button.tsx 加 chrome 态色变体 + ghost 改用 `--chrome-hover/press` 标度；scroll-area.tsx 删未用 React 导入）
+- `brand-logo.tsx` — 品牌 logo 统一组件（默认 size-5 = 侧栏图标+4px）
+- `option-switch.tsx` — 选项切换控件：一行分段选项 + 实心浮起游标标示选中（状态机与键盘导航用官方 ToggleGroup）；参数 `options`（值/名称/可选图标）、`value`、`onChange(next, origin?)`（origin＝被点选项中心）+ 窄位档 `size`/`iconOnly`；内衬 sm 2 / default 4、左右恒 4（内部常量，不对外）；游标位移与宽高由脚本直写 style（不进 React 状态），`useLayoutEffect` 首帧就位 + `ResizeObserver` 跟随尺寸变化；宽度恒自适应内容；配色、时长与缓动常量都在本文件（导出 `SLIDE_MS` 供调用方等滑行），index.scss 不再为该控件开规则；圆角固定 32px（模块常量，不可调；轨道用之、游标恒半圆端）
+- `theme-provider.tsx` — 主题上下文（light/dark/system，html class 与 Windows 窗口原生明暗同步落；未选过时默认 light，与 index.html 首帧脚本同值；转出 `theme`/`resolvedTheme`（system 已解析）/`systemTheme`（系统偏好，供切换前预判是否空转）/`setTheme`）
+- `stagger-reveal.tsx` — 错峰入场容器（直接子元素逐个进场，`trigger` 变化重播；anime.js 只经 `lib/motion` 懒加载接入，作用域异步就绪后补播首次入场；默认 `contents` 不额外造盒）；`RevealPolicyProvider` 由轨道逐槽声明该页的 `reveal` 档，容器自查是否播放
+- `layout/` — 应用外壳：
+  - `app-shell.tsx` — 应用壳根（本身不画圆角，整窗形状由文档根承担）：`<CanvasAnchor/>` 锚点 + TitleBar + 常驻侧栏（三态经 store/ui 纯函数翻译）+ 路由轨道（PageTrack，内容区）+ 桌面专属末尾 `[data-app-edge]` 描边层；宽度/磨砂/渐变变更时发布到通道
+  - `page-canvas.tsx` — 页面背景画布：自持锚点槽位（`CanvasAnchor` + useSyncExternalStore，无 context）；每页两层＝壳色噪点晕染衬层 + 半透磨砂内容面；`surfaceLeft(mode, desktop)` 是本模块拥有的偏移算法（left 直写 style）；`CanvasOwner active` 声明当前页——路由轨道保活多页时只有当前页铺画布（半透内容面不得叠加）
+  - `page-track.tsx` — 内容区路由轨道（替换 Outlet，`PageTrack`/`PageSlot` 均 memo 隔离外壳重渲染）：唯一的路由监听，按 `registry.handle.motion` 决定动画；最多 3 个页面槽，当前页居中、序号越大越靠左；换页只改轨道位移 → 平移一个槽宽（旧页右移出屏、新页从左侧紧贴移入，无透明度变化）；方向：历史穿越比条目号（小＝往左），菜单点击比目标槽停在哪一侧（左邻＝往右、右邻＝往左，没缓存过的新页往右）；每槽覆盖自己的 Location、自带 ScrollArea 与 Suspense，非当前槽 inert + aria-hidden、收尾后 `visibility:hidden` 冻结；骨架屏阶段的槽不保活（`SlotReady` 报就绪后才计入缓存）
+  - `page-skeleton.tsx` — 懒加载骨架（PageCanvas 衬底 + Skeleton 两块），page-track 每槽的 Suspense fallback
+  - `class-names.ts` — 跨文件共享的外壳/页面类串单源：`PAGE_PAD_CLASS`（普通内容页内边距，chat 全高自滚页不接入）、`SIDEBAR_LABEL_CLASS`（侧栏折叠淡出标签盒，brand 另追 `w-0/flex-none`）、`CHROME_GROUP_CLASS`（chrome 动作簇的 no-drag 容器）
+  - `chrome-group.tsx` — 窗口 chrome 的左右动作簇（`side` 决定 pl-2/pr-2）：标题栏与登录页顶栏共用；只统一这一层，整条 chrome 条不抽象（壳内流内 header、登录 fixed、浏览器档两个悬浮角定位不同）
+  - `icon-action.tsx` — 图标按钮 + 下方提示的统一外壳（标题栏/侧栏图标动作一律用它）
+  - `title-bar.tsx` — `h-titlebar` 自绘标题栏：三态开关/前进后退 + 拖动区 + 主题/置顶/窗口三键
+  - `sidebar-body.tsx` — 侧栏正文（品牌+导航+用户；固定与悬浮共用，tooltip=false 抑制全宽态提示）
+  - `sidebar-brand.tsx` / `sidebar-nav.tsx` / `sidebar-user.tsx` — 头部 logo / 导航项 / 底部用户区菜单（明暗模式=菜单内一行右侧内嵌 `ThemeMenu`（`skipSame` + 滑完游标才收菜单 + 事务再等浮层），个性化=`/settings?section=personalize` 深链、设置、登录/退出）
+  - `sidebar-cycle-trigger.tsx` — 三态循环按钮（提示=下次点击效果；移动端=抽屉开合）
+  - `sidebar-peek.tsx` — hidden 态左缘悬浮侧栏（官方非模态 Sheet + 热区 hover 唤出；几何/磨砂/1px 极浅描边/遮罩统一在 index.scss 的 sidebar-peek 契约条目里）
+  - `sidebar-resizer.tsx` — 展开态拖宽手柄（自持指针拖拽：宽度 = 按下时宽度 + 指针行程，拖动中只写文档根通道变量，pointerup 提交 store；命中区 16px、视觉线 0.5px 居中；指针捕获按 best-effort 处理，失败不吃掉提交）
+  - `theme-menu.tsx` — 明暗入口，四处共用的唯一接线点（标题栏/登录页顶栏/设置页/侧栏菜单）：`OptionSwitch` 三档；参数 `size`/`iconOnly`（标题栏与侧栏窄档只显图标、设置页带文案）、`onSlideDone`（滑完游标先收浮层）、`settleExtraMs`（切换事务再等浮层消失的下限）、`skipSame`；选项与切换事务在 `hooks/use-theme-switch`
+  - `window-drag-region.tsx` — 拖动区（原生 app-region 转发 + JS 双轨兜底，双击最大化）
+  - `window-controls.tsx` — 最小/最大/关闭三键（仅桌面；关闭键 Windows 红）
+  - `window-pin.tsx` — 窗口置顶开关（仅桌面；不随重启保留）
+  - `window-radius.tsx` — 圆角合成器（main.tsx 里与 RouterProvider 同级，全路由一份）：store 的四角半径 + 最大化状态 → `lib/radius-channel`
+  - `window-reveal.tsx` — 首屏提交后发 `reveal_window` 就绪信号（启动阶段窗口最小化，此处才还原+显示+聚焦；禁用 rAF 触发，最小化时 WebView2 停帧）
+- `flow/` — React Flow 演示（`flow-demo.tsx` 画布编排、`step-node.tsx` 自定义节点=官方 Card，退出全局磨砂、定宽）
+
+routes/：
+- `router.tsx` — 路由表：`/login` 独立于外壳；壳内子路由取自 `registry.ts`
+- `registry.ts` — 外壳子页路由表（home/chat/flow/settings + 桌面专属 test，除 home 外全部 lazy 分包）：`createHashRouter` 的 children 与路由轨道共用同一数组；每页 `handle.motion` 携动效档（enter 整页动 / query 同页地址档 / reveal 页内错峰档），`handle.nav` 携侧栏导航元数据（label/icon/order；不挂 nav 的页不进侧栏，桌面专属 test 随路由注册一并门控），`navItems` 由此派生、`sidebar-nav` 只消费；`resolveRoute(path)` 一次匹配同时给出页面组件与动效档
+- `pages/` — `home` 演示页 / `chat` AI 对话 / `flow` 流程测试 / `login` 表单登录（预留校验；根是 `h-svh overflow-y-auto` 滚动容器 + 内层 `min-h-full` 居中盒——主干 overflow 恒 hidden，页面必须自滚，矮窗口不截断；左上角返回入口：可后退走 navigate(-1)，直达时兜底 replace 到主界面，桌面档摆在 40px 拖动条左端、web 档悬浮左上）/ `settings` 官方 Tabs 分区导航（当前分区以 URL `?section=` 为唯一事实，非法值回落首项；≥768 可拖宽分栏；分区表（id/label/icon/Panel/action）同时驱动导航、面板与标题行右侧动作：快捷键=Item/Kbd 清单，个性化=磨砂两滑杆 + 背景渐变开关 + 桌面专属四角圆角四滑杆 + 标题右侧「重置」回默认档；滑杆拖动期只更新本地草稿并直写 CSS 通道做即时预览，松手（`onValueCommitted`）才提交 store）/ `test-token` sidecar 令牌测试（仅桌面，结果用官方 Code Block）
+
+dev/（零依赖原生工具，可整体拷走；独立使用的开发期工具，不属于组件体系，不参与组件化与复用合并，不为风格统一改造、不接入 ui/lib/hooks 通道）：
+- `layer-inspector.ts` — 层级背景检视器：`mountLayerInspector()` 唯一导出（幂等，返回卸载函数；卸载会清 `data-dlx` 标记与 window 监听）。自动扫描绘制层（html、body 恒为 #0/#1 底层，其余按 `getComputedStyle` 自带 bg/背景图/backdrop-filter/box-shadow/outline 判定），文档顺序即层序并记最近登记父层；`[data-dlx=n]` + 注入样式表逐层 `visibility` 切换——只在「祖先正被隐藏会继承下来」时才补 visible，绝不顶掉宿主自己的 visibility；默认由内向外，⇄ 反转，⟳ 重扫；面板 = 可拖动吸边按钮（位置存 localStorage）+ 进度条/数字框 + tag#id.class.data-* 折叠树，点标签复制裸词（剪贴板失败可框选 Ctrl+C）；工具自身打 `[data-dlx-ui]`，扫描跳过且样式永久豁免
+
+store/（zustand persist；落盘键名一律取 `lib/storage.ts` 登记表，并经其 `storageAdapter` 按键防抖写入，`migrate`+`merge` 共用同一收敛函数，每次加载挡住脏值）：
+- `ui.ts` — 侧栏三态模式 + 宽度（默认 260px，与 index.scss `--sidebar-width` 兜底同值；收敛进 `sidebar-channel` 的 160–480）+ 个性化四项组（`glassBlur` 12px、`glassFilm` 76%、`bgWash` 默认开、`corners` 四角半径 7px；默认档 `*_DEFAULT` 与上限 `BLUR_MAX`/`FILM_MAX`/`RADIUS_MAX` 同处登记，滑杆、迁移与回默认档共用；**改默认不做旧数据兼容**——旧值原样留着，要统一就在个性化里重置）+ `resetPersonalize()`（一次回默认档，不动侧栏）；v4（v1 迁旧二态、v2 加磨砂、v3 撤系统材质、v4 四角半径入库）
+- `auth.ts` — 登录态（预留，无服务端校验）；非字符串用户名按未登录处理
+
+hooks/：
+- `use-mobile.ts` — 移动断点判定（768px 的 JS 侧唯一来源，与 index.scss 的 --breakpoint-md 同值）
+- `use-history-nav.ts` — 前进/后退可用性，直接转出 `lib/route-history` 的账本快照（不再自读 history.state）
+- `use-theme-switch.ts` — 明暗三选项唯一来源：`THEME_ROWS`（值/文案/图标表，新增档只改这里）+ `useThemeSwitch()`（返回乐观优先的 `shown` 与 `switchTo(next, event?, settleMs?)`：起点取点击处、拿不到坐标落视口中心、`settleMs` 让事务等游标滑到位再启动、生效明暗未变则只落状态不起全屏动画、失败回滚、连点作废过期事务）；`startThemeTransition` 的唯一调用方；控件形态不在这里，在 `components/option-switch.tsx`
+
+shortcuts/：
+- `registry.ts` — 快捷键单一来源：条目含 combo 结构、生效端、类别；`comboText/entryText` 派生展示串，`comboMatches` 供匹配，`effectiveShortcuts/shortcutById` 供安装与设置页（键位字面量只出现在这张表里）
+- `sidebar-hotkey.ts` — 三态循环热键（组合键取自 registry；注册表内置的两态 Ctrl+B 已移除，不再抢事件）
+- `webview.ts` — 守卫安装器：拖入拦截常驻，block 类与 hotkey 类条目全部由清单驱动（行为表按 id 挂钩）
+
+lib/：
+- `tauri/index.ts` — Tauri 能力唯一入口：`IPC`/`IPC_EVENT` 常量表（命令与事件名不再散写）+ 窗口操作/置顶/sidecarToken（仅缓存非空结果）/终止事件订阅 + `useWindowState` 单例快照（只剩最大化标志，圆角不在此处）
+- `radius-channel.ts` — 圆角通道：把四角半径合成 border-radius 串写到文档根供全树继承（`publishRadius(corners, maximized)`）；只出值不挂标记——最大化输出 `0`，其余桌面/web 同一套值，形状与裁切由 index.scss 的 `html, body` 静态规则消费
+- `backend.ts` — 后端目标单一来源：`apiUrl` 拼址、`authHeaders` 注令牌、`treatyRequest` 供 Eden；形态判据只在这里
+- `api.ts` — Eden 客户端（消费 backend）；`chat.ts` — AI SDK transport（消费 backend，fetch 白名单）
+- `sidebar-channel.ts` — 侧栏宽度通道：把 `--sidebar-width` 发布到文档根（`publishWidth/readWidth/nextWidth` + 可拖区间 `WIDTH_MIN`/`WIDTH_MAX`），使侧栏、画布、body Portal 的悬浮侧栏继承同一个值；宽度上下限在此单源，拖拽与持久化收敛共用
+- `route-history.ts` — 路由历史位置（全应用唯一读 `history.state.idx` 的地方）：只记上一条条目号 + 前进上界，`observePath()` 给出历史穿越方向与是否穿越，`subscribeHistory/historySnapshot` 出前进后退可用性；菜单点击的方向由 page-track 按槽位定
+- `storage.ts` — 持久化唯一门面：`STORAGE_KEYS` 表列出全部 localStorage 落点（含第三方库自管的键，只做索引不接管）+ 容错读写 + 按键防抖落盘（同键窗口期只写一次）+ `flushStorage`/`writeTextNow`/`removeText` + `pagehide`/`beforeunload`/`visibilitychange` 强制 flush + 给 zustand persist 用的 `storageAdapter`；`src/dev/layer-inspector.ts` 是唯一豁免（可整体拷走的零依赖单文件，自持位置存档）
+- `glass-channel.ts` — 个性化旋钮通道：把 `--glass-blur`/`--film-a`/`--wash-a` 发布到文档根（`publishGlass`），内容面着色与模糊、衬层径向晕染只读这三个令牌，平台无关
+- `motion.ts` — 动效单源 = anime.js 唯一入口（动画库懒加载 `import("animejs")`，首屏主包不含）：`useMotionScope(root, register)` 返回 `{ scope, ready }`（官方 createScope 生命周期，卸载 revert；异步就绪后调用方按 ready 补播）、`revealStagger` 错峰挤入、`shake` 抖动反馈、`prefersReducedMotion` 守卫（切页平移不走 JS，见 layout/page-track）。只做局部动画，页面禁止直接 import animejs 或写死数值
+- `theme-transition.ts` — 主题切换事务 `startThemeTransition({apply, rollback, x, y})`：写 --vt-* 触发圆形揭示，回调内只同步落 html class（新快照随后捕获）；提交半途抛错即调用 rollback，无 VT/VT 自身抛错则降级为直接切换，`ready`/`finished` 的 reject 一律接住。反馈分层归调用方：按钮先切，事务延后一个任务
+
+## src-bun/（Bun + Elysia；桌面 sidecar / 服务器部署两形态，靠令牌区分）
+
+- `app/index.ts` — 应用组装入口；`app/cluster.ts` — 多进程封装
+- `app/common/` — `tauri_sidecar.ts`（sidecar 令牌配置，token 非空=本地模式）、schemas/schemaDerive/init-global
+- `app/controller/api/` — 公共路由 `/api/**`（chat、test、嵌套示例 testsub）；`app/controller/offline/` — 桌面专属 `/offline/**`（服务器形态按令牌一律 404，门控在 `app/plugins/controller.plug.ts`）
+- `app/lib/` — drizzle / redis / logger / error；`app/model/` — 数据表 mold（user/post/relations）
+- `app/plugins/` — 控制器注册 / macro / schema 插件；`app/utils/` — file / watch / menu-ui 通用工具
+- `system/script/` — build / build_tauri_bun（产出 sidecar 二进制）/ genApiTypes / routes（顶层路由前缀全部组合导出，漏导出=该前缀不可达）/ menu / batchExport；`system/generated/` — 派生产物（勿手改）
+- `public/` — 服务静态资源；`logs/` — 运行日志
+- 产物 `bun-service-<target>.exe|.map` — tauri sidecar 二进制（externalBin 引用）
+
+## src-tauri/（Tauri v2，Rust 桌面壳）
+
+- `tauri.conf.json` — 窗口（无装饰/透明/无 OS 阴影与边框/最小 375×667）/ devUrl / bundle（externalBin 由 scripts 注入，源文件留空）
+- `build.rs` — tauri_build + release 下 externalBin 自检（缺 sidecar 配置即中断构建）
+- `Cargo.toml` — `[features] devtools`（dev 由 scripts 传 `--features`，release 不含 DevTools；cfg(debug_assertions) 不能用于选依赖）；windows/webview2-com 仅 Windows target；panic=abort
+- `capabilities/default.json` — 窗口权限白名单（minimize/toggle-maximize/close/start-dragging/set-always-on-top/set-theme；show 已由 Rust 侧 reveal_window 承担，不再开权限）
+- `app-icon.png` + `icons/` — 全端图标（app-icon.png 为源图，改动后 `bunx tauri icon app-icon.png` 重生成；android/ios 目录为模板保留）
+- `src/`：
+  - `main.rs` — 入口（release 无控制台）
+  - `lib.rs` — Builder：插件（shell/window-state/single-instance）+ setup（release 拉 sidecar、WebView2 非客户端区转发、5s 强显兜底）+ 命令注册
+  - `commands.rs` — IPC：`sidecar_token`（未就绪返回空串）/ `reveal_window`（就绪信号，动作在 lib.rs `present_window`）/ `shell_platform`（Rust cfg 平台标识）
+  - `sidecar.rs` — bun-service 生命周期：注入令牌、置位/清零 SidecarReady、日志转发、意外退出 emit `sidecar-terminated`
+  - `sidecar_terminal_log.rs` — release 终端日志文件（exe 同级 logs/sidecar_terminal_bun/）
+  - `state.rs` — 托管状态：SidecarToken / SidecarReady（进程起来且未退出才为真）/ CornerState（WindowCorners 默认 5px，与前端同步）
+
+## 跨模块契约速查（改动时任一端必查另一端）
+
+| 契约 | 两端 |
+|---|---|
+| invoke：`sidecar_token` `reveal_window` `shell_platform` | src-tauri/commands.rs ↔ src-web/lib/tauri（`IPC` 表；`bun run check:ipc` 校验） |
+| 事件：`sidecar-terminated` | src-tauri emit ↔ src-web listen（`IPC_EVENT` 表；同上校验） |
+| env：`TAURI_SIDECAR={"token":...}` | src-tauri/sidecar.rs ↔ src-bun/common/tauri_sidecar.ts |
+| 应用标识与名字 | tauri.conf.json `productName`/`identifier`（AIGC / com.aigc）＝窗口标题、可执行文件名与数据目录（`%APPDATA%\com.aigc`、WebView2 profile）；web 侧另有 `index.html <title>` 与 `brand-logo.tsx` 的 `BRAND_NAME`；改标识=换数据目录，旧数据不迁移 |
+| 令牌语义：非空=sidecar 进程已起来且未退出 | src-tauri/SidecarReady ↔ src-web/lib/backend（请求头）↔ src-bun/controller.plug（校验/门控） |
+| HTTP：`/api/**` `/offline/**` | src-bun 控制器（offline 按令牌 404） ↔ src-web/lib/backend（apiUrl+authHeaders） |
+| 侧栏宽度通道 `--sidebar-width` | src-web/lib/sidebar-channel.ts 单点发布（文档根）→ 侧栏/画布/悬浮侧栏/index.scss 兜底 |
+| 内容面偏移 | src-web/components/layout/page-canvas.tsx 的 `surfaceLeft(mode, desktop)` |
+| 圆角 | 四角半径真值在 src-web `store/ui.ts`（默认 7=RADIUS_DEFAULT；index.scss `--app-radius` 兜底恒取 0，桌面真值由通道首绘前写入）→ `lib/radius-channel` 只把值写进文档根 `--app-radius`（桌面档且未最大化输出四值，其余输出 0）；形状与裁切是静态规则 `html, body{border-radius:var(--app-radius);overflow:hidden}`（用户实测生效档，两层盒重合：body 无 margin 与 html 同原点同尺寸，故无逐角递减；原点不同的层——壳根/登录页根/页面组件——一律禁止再画圆角）；`[data-app-edge]` 描边与 `::view-transition` 底色层只是按同一变量画线/画底，不额外裁切。Win 侧 setup 设 `DWMWCP_DONOTROUND` 关掉系统 8px 裁切，其余平台无分支 |
+| 个性化旋钮 `--glass-blur`·`--film-a`·`--wash-a` | src-web `store/ui.ts`（个性化设置）→ `lib/glass-channel.ts` 单点发布到文档根 → index.scss 内容面着色规则 + 衬层径向晕染（`--wash-a` 为 0 即整体关掉背景渐变）；衬层壳色恒实心，与平台无关 |
+| 持久化键清单 | src-web/lib/storage.ts `STORAGE_KEYS`（store/theme/分栏布局/检视器位置唯一登记处，新增必须登记且键值不可再改） |
+| 出场时机（启动最小化 → 首屏还原聚焦） | src-tauri/lib.rs setup + `commands::present_window` ↔ src-web/components/layout/window-reveal.tsx |
+| 系统材质（已撤销） | 不用 `windowEffects`/`set_effects`：材质连带 DWM 投影与 1px 框线且关不掉；磨砂一律 src-web CSS（见「个性化旋钮」契约行） |
+| 移动断点 768 | src-web/hooks/use-mobile.ts ↔ index.scss `--breakpoint-md`/媒体查询（壳最小 375×667 见根 AGENTS） |
+| devUrl / externalBin | scripts/config.ts ↔ src-tauri/tauri.conf.json |
+| 快捷键清单 | src-web/shortcuts/registry.ts（键位/展示/安装唯一来源，新增必须登记） |
+
+## 维护规范
+
+- 结构变化 = 代码 + 本文件同一提交更新；漏更视为改动未完成
+- 新增模块/目录：先定职责归属（各模块自查、互不牵扯），再登记条目
+- 命名沿用现有约定：`src-*` 顶层模块；web 内按职责目录（layout/routes/store/hooks/shortcuts/lib）

@@ -1,0 +1,63 @@
+# dependencies
+/node_modules
+/.pnp
+.pnp.js
+
+# testing
+/coverage
+
+# next.js
+/.next/
+/out/
+
+# production
+/build
+/dist
+# generated/
+/bun-*.*
+
+# misc
+.DS_Store
+*.pem
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# local env files
+.env.local
+.env.*.local
+
+# vercel
+.vercel
+
+**/*.trace
+**/*.zip
+**/*.tar.gz
+**/*.tgz
+**/*.log
+**/logs/
+package-lock.json
+bun.lock
+**/*.bun
+bun.lockb
+
+# IDE
+.idea/
+*.swp
+*.swo
+*~
+
+.trae/
+.agents/
+
+# cache
+.cache/
+*.tsbuildinfo
+
+# other
+/.template
+
+# runtime sqlite
+/data/

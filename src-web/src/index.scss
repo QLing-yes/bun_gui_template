@@ -1,0 +1,652 @@
+/* 条目顺序：@use 必须是第一条（Sass 要求，其后才能写其它规则）；
+   下方 *.css 一律保留原生 CSS @import（Sass 的 @import 弃用只针对 .scss 模块）：
+   它们由 Tailwind/PostCSS 在 CSS 阶段解析，改成 @use 会把内容内联进来、丢掉 Tailwind 入口；
+   Sass 输出时会把这几条原生 @import 提升到文件顶部，视觉顺序与原先一致（vendor → typeset → 本文件规则） */
+@use "./styles/typeset.scss";
+
+@import "tailwindcss/index.css";
+@import url("tw-animate-css");
+@import "shadcn/tailwind.css";
+@import "@fontsource-variable/geist/index.css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* 视口与尺度的单一来源：md 断点 768px 与 hooks/use-mobile.ts 的 MOBILE_BREAKPOINT 同值，
+   标题栏带 2.5rem 与 title-bar.tsx 的 h-titlebar / 画布 top-titlebar 同源 */
+@theme inline {
+  --breakpoint-md: 768px;
+  --spacing-titlebar: 2.5rem;
+  --font-heading: var(--font-sans);
+  --font-sans: "Geist Variable", sans-serif;
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-separator: var(--separator);
+  /* 界面按钮态色（标题栏/侧栏/分区导航统一） */
+  --color-chrome-hover: var(--chrome-hover);
+  --color-chrome-press: var(--chrome-press);
+  --color-chrome-on: var(--chrome-on);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-foreground: var(--foreground);
+  --color-background: var(--background);
+  --color-shell: var(--shell);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+:root {
+  --background: oklch(1 0 0);
+  --shell: #f2f1f4;
+  /* 正文前景：近黑而非纯黑（原 0.145 在浅底上偏重），派生的 --chrome-* 态色随之变柔 */
+  --foreground: oklch(0.21 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: var(--foreground);
+  --popover: oklch(1 0 0);
+  --popover-foreground: var(--foreground);
+  --primary: oklch(0.205 0 0);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.97 0 0);
+  --secondary-foreground: var(--foreground);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --accent: oklch(0.93 0 0);
+  --accent-foreground: var(--foreground);
+  --destructive: oklch(0.577 0.245 27.325);
+  /* 全局边框统一色：--border/--input 均为其别名，一律 1px */
+  --edge: oklch(0.9 0 0);
+  --border: var(--edge);
+  /* 全局分割线统一色（比边框略深，单源单粗 1px） */
+  --separator: oklch(0.88 0 0);
+  --input: var(--edge);
+  --ring: oklch(0.708 0 0);
+  --chart-1: oklch(0.87 0 0);
+  --chart-2: oklch(0.556 0 0);
+  --chart-3: oklch(0.439 0 0);
+  --chart-4: oklch(0.371 0 0);
+  --chart-5: oklch(0.269 0 0);
+  --radius: 0.625rem;
+  /* 侧栏底色与窗口壳色绑定（标题栏透明衬壳色），两主题恒统一 */
+  --sidebar: var(--shell);
+  --sidebar-foreground: var(--foreground);
+  --sidebar-primary: oklch(0.205 0 0);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: var(--chrome-hover);
+  --sidebar-accent-foreground: var(--foreground);
+  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-ring: oklch(0.708 0 0);
+  /* 侧栏宽度通道默认值：真值由 lib/sidebar-channel 写到文档根，此处仅兜底无 JS 时；
+       260px 与 store/ui.ts 的 sidebarWidth 默认值同值，折叠宽 3rem 与注册表 SIDEBAR_WIDTH_ICON 同值 */
+  --sidebar-width: 260px;
+  --sidebar-width-icon: 3rem;
+  /* 圆角通道兜底取 0：裁切规则静态挂在 html/body 上，兜底非 0 会让 web 档首帧人为裁角；
+       桌面真值由 lib/radius-channel 在首绘前写入，描边与 VT 快照底色层读同一变量 */
+  --app-radius: 0px;
+  /* 内容面左上内圆角：装饰性单源值，与窗口四角半径无关（web 档也生效） */
+  --surface-radius: 10px;
+  /* 切页平移：时长与缓动单源。缓动取 easeOutCubic（控制点 0.33→0.68 递增、不回折）：
+     中段仍有可见位移、尾段平缓减速，比原来「前半程走完 91%、后半程几乎静止」更像滑过去；
+     400ms 让位移摊到更多帧，掉帧也不集中在开头 */
+  --push-duration: 400ms;
+  --ease-push: cubic-bezier(0.33, 1, 0.68, 1);
+  /* 个性化旋钮（真值由 lib/glass-channel 写进文档根，此处仅兜底）：
+     `--glass-blur` 内容面自糊半径；`--film-a` 内容面壳色不透明度 %；`--wash-a` 衬层背景渐变系数（1 开 / 0 关）。
+     默认档与上限在 store/ui.ts 的 *_DEFAULT·*_MAX，改一处两处一起动；只作用于 HTML 渲染，衬层恒实心 */
+  --glass-blur: 12px;
+  --film-a: 76;
+  --wash-a: 1;
+  /* 导航层着色料：壳色轻掺前景色（亮微暗、暗微亮），供标题栏/侧栏作半透磨砂底 */
+  --chrome-bg: color-mix(in oklab, var(--shell) 90%, var(--foreground));
+  /* 按钮态色单源：以前景色按透明度叠加壳/面板，明暗主题自动对称（悬停 10% < 按下 16% < 选中 20%） */
+  --chrome-hover: color-mix(in oklab, var(--foreground) 10%, transparent);
+  --chrome-press: color-mix(in oklab, var(--foreground) 16%, transparent);
+  --chrome-on: color-mix(in oklab, var(--foreground) 20%, transparent);
+  /* 导航常态字/icon 色：前景色轻掺（浅一档但仍 ≥7:1 对比）；选中态才升到 --foreground */
+  --nav-idle: color-mix(in oklab, var(--foreground) 78%, transparent);
+  /* 全局淡出线单源：1px、两端 4% 全透明；横/竖各一条，SCSS 与 TSX 一律引用，不再各写渐变 */
+  --line-h: linear-gradient(
+    to right,
+    transparent 0%,
+    var(--separator) 4%,
+    var(--separator) 96%,
+    transparent 100%
+  );
+  --line-v: linear-gradient(
+    to bottom,
+    transparent 0%,
+    var(--separator) 4%,
+    var(--separator) 96%,
+    transparent 100%
+  );
+}
+
+.dark {
+  --background: oklch(0.145 0 0);
+  --shell: oklch(0.205 0 0);
+  --edge: oklch(1 0 0 / 12%);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.205 0 0);
+  --card-foreground: var(--foreground);
+  --popover: oklch(0.205 0 0);
+  --popover-foreground: var(--foreground);
+  --primary: oklch(0.922 0 0);
+  --primary-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: var(--foreground);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: var(--foreground);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: var(--edge);
+  --separator: oklch(1 0 0 / 14%);
+  --input: var(--edge);
+  --ring: oklch(0.556 0 0);
+  --chart-1: oklch(0.87 0 0);
+  --chart-2: oklch(0.556 0 0);
+  --chart-3: oklch(0.439 0 0);
+  --chart-4: oklch(0.371 0 0);
+  --chart-5: oklch(0.269 0 0);
+  --sidebar: var(--shell);
+  --sidebar-foreground: var(--foreground);
+  --sidebar-primary: oklch(0.488 0.243 264.376);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: var(--chrome-hover);
+  --sidebar-accent-foreground: var(--foreground);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.556 0 0);
+}
+
+/* UA 着色方案：决定「未被自绘覆盖」的像素用什么底色（默认画布、滚动条、表单控件、highlight）。
+   不声明则暗色下这些位置恒是白——整窗圆角裁掉的顶边尤其明显。 */
+html {
+  color-scheme: light;
+}
+
+html.dark {
+  color-scheme: dark;
+}
+
+/* 全局字体渲染：灰度抗锯齿 + 真字重（禁合成加粗）+ 常规字距连字，小字号不发虚；
+   正文色取近黑 --foreground（非纯黑），对比度仍 ≥13:1 */
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-kerning: normal;
+  font-synthesis-weight: none;
+  text-rendering: optimizeLegibility;
+}
+
+/* ================= 注册表覆写契约（升级 shadcn / Base UI 后按本清单逐条复查） =================
+   以下每条都依赖注册表内部实现，层外声明压过 @layer utilities；改 CLI 前先读这一节。
+   1) [data-slot=card|dropdown-menu-content]        统一 40% 磨砂；Item/Sheet 自带 data-slot 亦受影响
+   2) [data-slot=card][data-flow-node]              流程节点退出磨砂（拖动掉帧）
+   3) [data-slot=page-canvas-surface]               内容面着色+12px 磨砂+左上内圆角(--surface-radius)；left 由 page-canvas 直写 style
+   4) [data-sidebar=sidebar]                        桌面档强制透明（压过 CLI 基类 bg-sidebar）
+   5) [data-slot=sidebar-peek]                      悬浮侧栏几何+磨砂+1px 极浅描边（覆写 SheetContent 的 data-slot 与 side=left 定位类）
+   6) [data-slot=sheet-overlay]:has(~ …)            非模态 Sheet 不压遮罩（Portal 内遮罩与面板夹 Base UI 辅助 span，故用 ~）
+   7) [data-slot=resizable-handle]::before          拖拽线（CLI ResizableHandle 不透传 children，只能画伪元素）
+   8) [data-slot=separator|item-separator|dropdown-menu-separator] 淡出线（Item 会改写 data-slot，需单列）
+   9) [data-slot=kbd]                               徽标底色压过 CLI 的 bg-muted（衬在 --shell 上不可见）
+   10) [data-sidebar=menu-button] 态色              底色：hover 与选中同为 --sidebar-accent(10%)，按下 --chrome-press(16%)；
+      选中差异只走字/icon 双档（未选中 --nav-idle 78%、选中 --foreground + CLI font-medium）。
+      字色需同时接 [data-active]:not([data-active=false]) 与 [data-state=active] 两种编译形态，
+      子项 svg 有独立着色类需单列，否则一律被 CLI 的 --sidebar-accent-foreground 压平
+   11) [data-slot=dropdown-menu-item] margin-block   菜单条目分离
+   12) [data-resizing-sidebar] …                     拖拽期禁过渡（属性名由 sidebar-resizer 写在 <html>）
+   13) [data-slot=card] --tw-ring-color              环色并入 --edge 单源
+   ======================================================================== */
+
+/* 基础层：@tailwindcss/vite 不编译 .scss 内的 @apply，等价声明直接写原生 CSS */
+@layer base {
+  * {
+    border-color: var(--border);
+    outline-color: color-mix(in oklab, var(--ring) 50%, transparent);
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+    /* 触屏/远控 touch 注入时禁整页弹性拉伸，防止位移露出透明窗口底 */
+    overscroll-behavior: none;
+    background-color: transparent;
+  }
+
+  body {
+    color: var(--foreground);
+  }
+
+  html {
+    /* @theme inline 不导出变量，font-sans 等价物必须写字体栈字面量 */
+    font-family: "Geist Variable", sans-serif;
+  }
+}
+
+/* 登录页光晕装饰：原生 400x457 位图，衬在卡片左下，位置/旋转/缩放由组件类名控制 */
+.bg-gradient {
+  background-image: url("/bgrgb.png");
+}
+
+/* 全局磨砂衬底：所有页面卡片与弹出选项统一 40% 半透 + 背景模糊；
+   半径压到 16px（原 24px）：视觉几乎无差，重采样量按半径平方下降；
+   双声明兼容旧 WebKit（不支持 color-mix 时保留基类实心令牌）；未分层声明优先于工具类 */
+[data-slot="card"],
+[data-slot="dropdown-menu-content"],
+[data-slot="dropdown-menu-submenu-content"] {
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+}
+
+[data-slot="card"] {
+  background-color: var(--card);
+  /* 旧引擎解析不了 color-mix 时回落实心 */
+  background-color: color-mix(in oklab, var(--card) 40%, transparent);
+}
+
+/* 流程节点是官方 Card，但退出全局磨砂：拖动时每节点一层 backdrop-filter 会掉帧 */
+[data-slot="card"][data-flow-node] {
+  background-color: var(--card);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+[data-slot="dropdown-menu-content"],
+[data-slot="dropdown-menu-submenu-content"] {
+  background-color: var(--popover);
+  background-color: color-mix(in oklab, var(--popover) 40%, transparent);
+}
+
+/* 菜单条目之间留上下外边距缝隙（非内边距）；4px 使 hover/选中高亮块彻底分离 */
+[data-slot="dropdown-menu-content"] [data-slot="dropdown-menu-item"],
+[data-slot="dropdown-menu-submenu-content"] [data-slot="dropdown-menu-item"] {
+  margin-block: 4px;
+}
+
+/* 侧栏导航组基类 gap-0 会让选中/hover 高亮块粘连，统一拉开 4px（移动抽屉同源生效） */
+[data-slot="sidebar-menu"] {
+  gap: 0.25rem;
+}
+
+/* 透明铁律（层外 + !important，任何工具类/组件类都不可覆盖）：
+   html/body/#root 恒透明，Tauri 窗口透明靠 transparent:true，背景色一律由嵌套层（.bg-shell 等）实现 */
+html,
+body,
+#root {
+  background-color: transparent !important;
+  background-image: none !important;
+}
+
+/* 页面画布衬层基色（.bg-shell 仅由 PageCanvas/登录页等页面根使用，不存在应用级背景） */
+.bg-shell {
+  background-color: var(--shell);
+}
+
+/* 减少动效偏好（无障碍硬要求）：全局压平过渡与动画，VT 揭示一并关掉直接切换；
+   JS 侧入场编排由 lib/motion 自查同一条件后跳过，两层共同保证"拿掉动画功能不变" */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation: none !important;
+  }
+}
+
+/* 点状装饰：页面局部类，仅登录页引用（流程页用 React Flow 自带 Background；不进全局衬层） */
+.bg-dots {
+  background-image: radial-gradient(var(--border) 1px, transparent 1px);
+  background-size: 16px 16px;
+}
+
+/* 页面画布内容面：半透壳色 + 自糊（衬层的噪点/晕染透过来，即"主界面半透底色"）；
+   强度与半径走 --film-a / --glass-blur（lib/glass-channel 写通道，默认 76% + 12px = 原样），
+   left 由 page-canvas.surfaceLeft() 直写 style。背景色只看这两个令牌，与系统磨砂开关无关 */
+[data-slot="page-canvas-surface"] {
+  background-color: var(--shell);
+  background-color: color-mix(
+    in oklab,
+    var(--shell) calc(var(--film-a) * 1%),
+    transparent
+  );
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  backdrop-filter: blur(var(--glass-blur));
+  border-top-left-radius: var(--surface-radius);
+  transition:
+    left 200ms ease-linear,
+    background-color 160ms ease;
+}
+
+/* 侧栏换态（Ctrl+B / 标题栏按钮 / 移动抽屉）：left 过渡每帧都会让整面带模糊的内容面重采样，
+   换态期间临时摘掉模糊（标记由 app-shell 挂 220ms，结束时自动恢复）；颜色与圆角保持原样 */
+[data-sidebar-switching] [data-slot="page-canvas-surface"] {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+/* 全透明导航定式：标题栏/桌面侧栏无任何背景（页面画布 Portal 铺满全窗垫底，纹理直接可见）；
+   仅悬浮侧栏（浮在内容上）保留 chrome 72% 半透 + 磨砂保证可读。
+   768px 与 @theme --breakpoint-md、hooks/use-mobile.ts 的 MOBILE_BREAKPOINT 同值 */
+@media (width >=768px) {
+  [data-sidebar="sidebar"] {
+    background-color: transparent;
+    /* 压过 CLI 基类 bg-sidebar 工具类 */
+  }
+}
+
+/* 悬浮侧栏（官方非模态 Sheet，走 body Portal 以全窗为基准）：让位标题栏带 + 四周留缝 + 跟随宽度通道；
+   1px 极浅描边与窗口描边/card 环同源（--edge），border-box 下不改变几何 */
+[data-slot="sidebar-peek"] {
+  inset: calc(var(--spacing-titlebar) + 0.5rem) auto 0.5rem 0.5rem;
+  width: var(--sidebar-width);
+  max-width: none;
+  height: auto;
+  border: 1px solid var(--edge);
+  background-color: var(--chrome-bg);
+  background-color: color-mix(in oklab, var(--chrome-bg) 72%, transparent);
+  /* 12px（原 18px）：面板近全窗高，Sheet 滑入时逐帧重采样整条高度，降档省 GPU 带宽 */
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+}
+
+/* 悬浮侧栏是非模态 Sheet（hover 唤出），不应压暗整窗遮罩
+   （Portal 内遮罩与面板之间还夹着 Base UI 的辅助 span，故用通用兄弟选择器） */
+[data-slot="sheet-overlay"]:has(~ [data-slot="sidebar-peek"]) {
+  display: none;
+}
+
+/* 全局边框统一：--edge 单色、一律 1px。输入族/outline 按钮经 --border/--input 别名已归一；
+   card 与菜单表面用 ring（box-shadow）描边，覆盖其环色变量并入同源 */
+[data-slot="card"],
+[data-slot="dropdown-menu-content"],
+[data-slot="dropdown-menu-submenu-content"] {
+  --tw-ring-color: var(--edge);
+}
+
+/* 整窗圆角：文档根与 body 同一组半径 + hidden 裁切（两层盒重合：body 由 preflight 去 margin、
+   与 html 同原点同尺寸，弧才逐像素对齐；原点不同的层——壳根/页面根——一律禁止再画圆角）。
+   半径值由 lib/radius-channel 写文档根供全树继承，桌面与 web 同一套值，只有最大化写 0；
+   主干恒透明，圆外像素不画布，透明窗口处即露出桌面；半径变化（最大化/还原）有 160ms 过渡 */
+html,
+body {
+  border-radius: var(--app-radius);
+  overflow: hidden;
+  /* 最大化/还原切换时半径在 0 与配置值之间跳变，过渡一下（reduced-motion 由全局块压平） */
+  transition: border-radius 160ms ease-out;
+}
+
+/* 窗口描边：Tauri 侧 decorations/shadow 全关，OS 不再画任何线，改由壳根末尾覆写层自绘 1px
+   （inset box-shadow 不占布局、不吃指针；半径取通道值——描边层不是裁切层，inherit 会继承到 0 变方框；
+   z-30 压过壳内 fixed 侧栏 z-10/20，又低于 Portal 到 body 的遮罩类 z-50；仅桌面渲染） */
+[data-app-edge] {
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  border-radius: var(--app-radius);
+  pointer-events: none;
+  box-shadow: inset 0 0 0 1px var(--edge);
+}
+
+/* 纯 CSS 亚克力近似（Win11 开始菜单质感，不依赖 OS 材质）：
+   细颗粒噪点 + 两处柔和晕染，叠在半透壳色衬底上（点状纹理不在此层，见 .bg-dots 页面局部装饰） */
+[data-slot="page-canvas-shell"] {
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.55 0 0 0 0 0.55 0 0 0 0 0.55 0 0 0 0.05 0'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E"),
+    radial-gradient(
+      60rem 40rem at 10% -10%,
+      color-mix(
+        in oklab,
+        var(--muted-foreground) calc(var(--wash-a) * 16%),
+        transparent
+      ),
+      transparent 65%
+    ),
+    radial-gradient(
+      50rem 36rem at 95% 108%,
+      color-mix(
+        in oklab,
+        var(--muted-foreground) calc(var(--wash-a) * 12%),
+        transparent
+      ),
+      transparent 60%
+    );
+  background-size:
+    140px 140px,
+    auto,
+    auto;
+}
+
+/* 侧栏按钮态色：按下(16%) 深于 hover 与选中（两者同为 10%），选中靠字色/字重区分 */
+[data-sidebar="menu-button"]:active,
+[data-sidebar="menu-sub-button"]:active,
+[data-sidebar="menu-action"]:active {
+  background-color: var(--chrome-press);
+}
+
+/* 导航字/icon 双档：未选中一律浅一档（--nav-idle），hover 只加深底色、字色不变，确保「悬停 ≠ 选中」；
+   :hover 与 > svg 两条变体用来压过注册表的 hover:text-sidebar-accent-foreground / [&>svg]:text-… */
+[data-sidebar="menu-button"],
+[data-sidebar="menu-button"]:hover,
+[data-sidebar="menu-sub-button"],
+[data-sidebar="menu-sub-button"]:hover,
+[data-sidebar="menu-sub-button"] > svg,
+[data-sidebar="menu-sub-button"]:hover > svg {
+  color: var(--nav-idle);
+}
+
+/* 选中态：底色交回注册表的 --sidebar-accent（=hover 同档，选中差异由字色 + font-medium 承担），
+   这里只升字色。注意 hover/按下的相对胜负见上一条规则顺序 */
+[data-sidebar="menu-button"][data-active]:not([data-active="false"]),
+[data-sidebar="menu-button"][data-state="active"],
+[data-sidebar="menu-sub-button"][data-active]:not([data-active="false"]),
+[data-sidebar="menu-sub-button"][data-state="active"] {
+  color: var(--foreground);
+}
+
+/* 选中项的 sub-icon 有自己的着色类，继承压不动，同规格显式升回全前景色 */
+[data-sidebar="menu-sub-button"][data-active]:not([data-active="false"]) > svg,
+[data-sidebar="menu-sub-button"][data-state="active"] > svg {
+  color: var(--foreground);
+}
+
+/* 设置页分栏手柄线：CLI ResizableHandle 不透传 children，线画在 handle ::before 上；
+   恒显 1px、两端 4% 全透明（--line-v），悬停/拖拽一律不变色 */
+[data-slot="resizable-handle"]::before {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  left: 50%;
+  width: 1px;
+  transform: translateX(-50%);
+  background-image: var(--line-v);
+}
+
+/* 键位徽标：内容区底色已是 --shell，官方 bg-muted(0.97) 衬在其上几乎不可见 → 白底 + 边框环 + 实色字 */
+[data-slot="kbd"] {
+  background-color: var(--background);
+  color: var(--foreground);
+  box-shadow: inset 0 0 0 1px var(--edge);
+}
+
+/* 全局分割线统一：1px 淡出线（--line-h/--line-v 单源）；覆盖 CLI 实心 bg-border
+   （item-separator 会改写 data-slot，须一并纳入选择器） */
+[data-slot="separator"],
+[data-slot="item-separator"],
+[data-slot="dropdown-menu-separator"] {
+  background-color: transparent;
+}
+
+[data-slot="separator"][data-orientation="horizontal"],
+[data-slot="item-separator"],
+[data-slot="dropdown-menu-separator"] {
+  height: 1px;
+  background-image: var(--line-h);
+}
+
+[data-slot="separator"][data-orientation="vertical"] {
+  width: 1px;
+  background-image: var(--line-v);
+}
+
+/* 拖拽调宽时禁用侧栏宽度与手柄位置的过渡，保证跟手（无橡皮筋延迟） */
+[data-resizing-sidebar] [data-slot="sidebar-gap"],
+[data-resizing-sidebar] [data-slot="sidebar-container"],
+[data-resizing-sidebar] [data-slot="sidebar-resizer"],
+[data-resizing-sidebar] [data-slot="page-canvas-surface"] {
+  transition: none;
+}
+
+/* 圆形揭示主题切换：关闭默认交叉淡化，方向动画由下方规则驱动（参数来自 lib/theme-transition.ts 写入的 --vt-*）。
+   切页不用 VT：同名组的 old/new 快照叠在同一个矩形里，做不出「两页并排一起平移」，
+   路由切页改由 components/layout/page-track 的 DOM 轨道负责（规则见下方 page-track 一节） */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+/* 路由切换＝轮播式平移（components/layout/page-track.tsx）：内容区最多 3 个页面槽，当前页居中，
+   切页时整条轨道平移一个槽宽——前翻新页从左侧紧贴挤入、旧页右移出屏，后翻＝镜像，全程只有 transform、无透明度变化。
+   前翻/后翻由浏览器历史条目序号（history.state.idx）决定，手动前进后退与导航到目标都按这条走。
+   槽左边距 = -序号 × 100%，轨道位移 = 当前序号 × 100%，两者相加即屏幕位置（标题栏与侧栏不动） */
+[data-slot="page-track"] {
+  position: relative;
+  flex: 1 1 0%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+[data-slot="page-track-pan"] {
+  position: absolute;
+  inset: 0;
+}
+
+/* 过渡只在平移期间挂载：收尾那一帧要瞬时（那帧只解除可见性豁免与裁剪离屏槽，位置不动）。
+   will-change 也只在此期间挂：把整条轨道提升为合成层，位移交合成器；结束即撤，不长期占显存。
+   transform 不在 backdrop root 的触发条件里，所以不会切断槽内卡片的磨砂采样 */
+[data-slot="page-track"][data-panning] [data-slot="page-track-pan"] {
+  transition: transform var(--push-duration) var(--ease-push);
+  will-change: transform;
+}
+
+[data-slot="page-track-slot"] {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 100%;
+}
+
+/* 冻结：平移结束后非当前槽整棵子树不参与绘制与命中，只保留 DOM 与组件状态（含各自滚动位置） */
+[data-slot="page-track"]:not([data-panning])
+  [data-slot="page-track-slot"]:not([data-active]) {
+  visibility: hidden;
+}
+
+/* 快照树底色：html/body 全透明（Tauri 圆角窗口），过渡期间任何未覆盖帧都会透见桌面，铺壳色兜底；
+   底色矩形必须跟裁切层同一个圆角，否则明暗切换的 300ms 里四角会被它填成尖角 */
+::view-transition {
+  background: var(--shell);
+  border-radius: var(--app-radius);
+}
+
+/* 切浅色：新快照从点击点扩散；切深色：旧快照收缩回点击点 */
+@keyframes vt-circle-in {
+  from {
+    clip-path: circle(0px at var(--vt-x) var(--vt-y));
+  }
+
+  to {
+    clip-path: circle(var(--vt-r) at var(--vt-x) var(--vt-y));
+  }
+}
+
+@keyframes vt-circle-out {
+  from {
+    clip-path: circle(var(--vt-r) at var(--vt-x) var(--vt-y));
+  }
+
+  to {
+    clip-path: circle(0px at var(--vt-x) var(--vt-y));
+  }
+}
+
+/* 快照层叠：切深色时旧快照在顶层被收缩，切浅色时新快照在顶层扩散 */
+::view-transition-old(root),
+.dark::view-transition-new(root) {
+  z-index: 1;
+}
+
+::view-transition-new(root),
+.dark::view-transition-old(root) {
+  z-index: 9999;
+}
+
+/* 静态 clip 兜底：动画挂载前新快照保持 0 半径，杜绝整屏闪帧 */
+html:not(.dark)::view-transition-new(root) {
+  clip-path: circle(0px at var(--vt-x, 50vw) var(--vt-y, 50vh));
+  animation: vt-circle-in 300ms ease-in forwards;
+}
+
+.dark::view-transition-old(root) {
+  animation: vt-circle-out 300ms ease-in forwards;
+}
+
+/* 选项切换游标的拉伸几何：宽度与左缘推移都由脚本写在元素上的变量驱动（from/peak/to/lead），前 18% 粘住不动，
+   58% 到峰值再回目标宽；右切 lead=0（左缘不动），左切 lead 为负 margin-left（右缘不动）。
+   该元素绝对定位、不在磨砂背后，属 lib/motion.ts 几何动画判据里的放行个例；transform 仍专用于滑行 */
+@keyframes option-switch-stretch {
+  0% {
+    width: var(--switch-stretch-from);
+    margin-left: 0;
+  }
+
+  18% {
+    width: var(--switch-stretch-from);
+    margin-left: 0;
+  }
+
+  58% {
+    width: var(--switch-stretch-peak);
+    margin-left: var(--switch-stretch-lead);
+  }
+
+  to {
+    width: var(--switch-stretch-to);
+    margin-left: 0;
+  }
+}

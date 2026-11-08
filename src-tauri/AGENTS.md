@@ -1,0 +1,16 @@
+# 规则
+- 窗口形态: `decorations:false` + `transparent:true`，圆角与标题栏由 src-web 外壳渲染；Rust 不持有圆角状态（原 `WindowCorners` 备忘录与 `get/set_window_corners` 已删，四角半径的真值和持久化都在 src-web `store/ui.ts`）。
+- 最大化时前端把圆角归零（避免遮挡任务栏），Rust 端不做该判断。
+- 窗口线/阴影/裁切一律不由本模块负责视觉：conf 关 `decorations` 与 `shadow`，Rust 只在 setup 设两条 DWM 属性——`DWMWA_BORDER_COLOR=NONE` 兜住 Win11 残留的 1px 框线、`DWMWA_WINDOW_CORNER_PREFERENCE=DONOTROUND` 关掉 Win11 那圈约 8px 的系统圆角裁切（否则 web 设 0 也画不出真直角）；描边与四角曲线真源在 src-web（`[data-app-edge]` + `--app-radius` 通道），本模块禁止内置任何颜色常量。
+- capabilities 白名单最小化：只开前端用到的 `core:window:allow-*`；新增窗口能力必须同步 `capabilities/default.json`，否则 IPC 静默失败。
+- 不做系统窗口材质：`windowEffects` / `set_effects` 已评估并撤销（系统材质会连带带来 DWM 投影与 1px 框线，公开 API 关不掉；失焦时材质还被压成灰平），磨砂全部由 src-web 的 CSS 出。别在这里重新加 effects 命令或 conf 配置。
+- 出场流程：setup 里 `minimize()`（任务栏就位、不上屏；conf 的 `visible:false` 仍保留，避免创建瞬间闪一下），等前端 `reveal_window` 交出就绪信号后由 `commands::present_window` 做 unminimize+show+set_focus；5s 兜底线程判据是「未显示或仍最小化」，二次启动复用同一 helper。本模块不假设前端何时加载完，也不给 show 开 `core:window:allow-show` 权限。
+- sidecar 生命周期：仅 release 构建启动 `bun-service`（`app.shell().sidecar`，构建脚本产出 `target/release/bun-service.exe`，config 的 externalBin 留空）；dev 模式服务由 bun 直接启动，本模块不拉进程。
+- release 打包自检：`build.rs` 在 `PROFILE=release`（cargo build script 变量，非 webpack 的 RELEASE）时断言 tauri.conf.json 的 externalBin 含 `bun-service`，缺失即中断构建（防止绕过 scripts 直接 `tauri build` 出无本地服务的坏包）。
+- sidecar 意外退出：监控任务 `emit("sidecar-terminated", code)` 通知前端（`lib/tauri.onSidecarTerminated`），本模块只发事件，UI 反馈归 src-web。
+- 令牌边界：本模块负责生成一次性随机 `SidecarToken`、经 `TAURI_SIDECAR` 环境变量注入，并在**进程确认起来后置位 `SidecarReady`**；`sidecar_token` 仅在就绪时返回令牌，进程退出即清零（前端「非空=可用」的判据由本模块保证）。HTTP 校验完全归 src-bun，窗口逻辑不得牵扯鉴权实现。
+- devtools：靠 cargo feature `devtools` 开关（`cfg(debug_assertions)` 不能用于选依赖，写了 cargo 会告警并失效）。dev 由 `scripts/dev.ts` 传 `--features devtools`，release 不带。
+- IPC 契约：命令与事件名必须与 `src-web/src/lib/tauri` 的 `IPC`/`IPC_EVENT` 常量表一致，`bun run check:ipc`（已前置进 `scripts/build.ts`）负责校验；新增/改名命令一律走该表。
+- sidecar 进程与 stdin 管道需随任务持有，Tauri 退出前不得关闭；进程侧联动退出（watchParentExit）归 src-bun。
+- release 下 sidecar 原始输出追加到 exe 同级 `logs/sidecar_terminal_bun/年-月-日.log`；目录无法解析时静默跳过，不阻断启动。
+- 贴靠布局浮层：web 自绘最大化按钮在稳定版 WebView2 无 HTMAXBUTTON 申报通道（app-region 转发由 Chromium 子窗口与 DWM 直接协作，不经宿主 WndProc；window-drag-button CSS 属 WCO 场景）；待 WebView2 WCO API 转正后再接入，方案与试验记录见记忆/git 历史。
