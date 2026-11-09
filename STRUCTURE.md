@@ -43,7 +43,7 @@ bun_gui_template/
 
 src/：
 - `main.tsx` — 挂载入口：引全局样式、输入守卫、sidecar 退出监听、`<AppBoot>` 启动闸门（IndexedDB 装载 + store 水合完成后才渲染，期间整页骨架/错误重试/自动退避）、`<ThemeProvider>`（主题上下文根，初始档位取自启动结果）、`<TooltipProvider/>`（全路由单实例，登录页与主壳共用）、`<Toaster/>`（全局提示出口）、`<StorageStatusToast/>`（落库失败轻提示）、`<WindowBootstrap/>`（圆角通道发布 + 窗口出场时机）
-- `index.scss` — 全局样式单一入口：Tailwind 引入、主题令牌(:root/.dark 含 --shell/--edge/--separator/--chrome-*/--nav-idle/--line-h|--line-v/侧栏宽度通道默认值/--app-radius 兜底/--surface-radius 内容面内圆角/--glass-blur·--film-a·--wash-a 个性化旋钮兜底/--push-duration·--ease-push 切页平移)、窗口钩子 `html, body`（圆角与裁切静态规则，值取 `--app-radius`）·`[data-app-edge]`（描边层）、`@theme inline`（--breakpoint-md=768px、--spacing-titlebar=2.5rem）、「注册表覆写契约」索引节（升级 CLI 前按该清单复查）、VT 圆形揭示、基础层
+- `index.scss` — 全局样式单一入口：Tailwind 引入、主题令牌(:root/.dark 含 --shell/--edge/--separator/--chrome-*/--nav-idle/--line-h|--line-v/侧栏宽度通道默认值/--app-radius 兜底/--surface-radius 内容面内圆角/--glass-blur·--film-a·--wash-a 个性化旋钮兜底/--push-duration·--ease-push 切页平移/--push-duration-fast 面板收起展开快档)、窗口钩子 `html, body`（圆角与裁切静态规则，值取 `--app-radius`）·`[data-app-edge]`（描边层）、`@theme inline`（--breakpoint-md=768px、--spacing-titlebar=2.5rem）、「注册表覆写契约」索引节（升级 CLI 前按该清单复查）、VT 圆形揭示、基础层
 - `assets/` — 打包静态资源；`public/logo.svg` — 品牌 logo（favicon/侧栏/登录共用，明暗自适应）；`public/bgrgb.png` — 登录页光晕位图（`.bg-gradient` 类引用）
 - `styles/typeset.scss` — Markdown 排版样式
 
@@ -54,17 +54,19 @@ components/：
 - `brand-logo.tsx` — 品牌 logo 统一组件（默认 size-5 = 侧栏图标+4px）
 - `page-card.tsx` — 单卡片演示页骨架（PageCanvas + 内容页内边距 + 标题/说明/正文卡片；首页与鉴权测试页共用）
 - `option-switch.tsx` — 选项切换控件：一行分段选项 + 实心浮起游标标示选中（状态机与键盘导航用官方 ToggleGroup）；参数 `options`（值/名称/可选图标）、`value`、`onChange(next, origin?)`（origin＝被点选项中心）+ 窄位档 `size`/`iconOnly`；内衬 sm 2 / default 4、左右恒 4（内部常量，不对外）；游标位移与宽高由脚本直写 style（不进 React 状态），`useLayoutEffect` 首帧就位 + `ResizeObserver` 跟随尺寸变化；宽度恒自适应内容；配色、时长与缓动常量都在本文件（导出 `SLIDE_MS` 供调用方等滑行），index.scss 只保留游标拉伸 `@keyframes option-switch-stretch`；圆角固定 32px（模块常量，不可调；轨道用之、游标恒半圆端）
-- `theme-provider.tsx` — 主题上下文（light/dark/system，html class 与 Windows 窗口原生明暗同步落；未选过时默认 system（跟随系统），与 index.html 首帧脚本同值；转出 `theme`/`resolvedTheme`（system 已解析）/`systemTheme`（系统偏好，供切换前预判是否空转）/`setTheme`）
+- `theme-provider.tsx` — 主题上下文（light/dark/system，html class 与 Windows 窗口原生明暗同步落；未选过时默认 system（跟随系统），与 index.html 首帧脚本同值；转出 `theme`/`resolvedTheme`（system 已解析）/`systemTheme`（系统偏好，供切换前预判是否空转）/`setTheme`）；系统明暗变化在 system 档复用 `lib/theme-transition` 的同一圆形揭示（起点取视口中心、优先级 system），固定档只刷新 `systemTheme` 不动视觉；`system` 档给原生窗口传 null（不钉死 PreferredColorScheme）
 - `stagger-reveal.tsx` — 错峰入场容器（直接子元素逐个进场，`trigger` 变化重播；anime.js 只经 `lib/motion` 懒加载接入，作用域异步就绪后补播首次入场；默认 `contents` 不额外造盒）；`RevealPolicyProvider` 由轨道逐槽声明该页的 `reveal` 档，容器自查是否播放
 - `layout/` — 应用外壳：
-  - `app-shell.tsx` — 应用壳根（本身不画圆角，整窗形状由文档根承担）：`<CanvasAnchor/>` 锚点 + TitleBar + 常驻侧栏（三态经 store/ui 纯函数翻译）+ 路由轨道（PageTrack，内容区）+ 桌面专属末尾 `[data-app-edge]` 描边层；宽度/磨砂/渐变变更时发布到通道
+  - `app-shell.tsx` — 应用壳根（本身不画圆角，整窗形状由文档根承担）：`<CanvasAnchor/>` 锚点 + TitleBar + 常驻侧栏（三态经 store/ui 纯函数翻译）+ 内容区（`ContentLayout` 内嵌路由轨道 PageTrack）+ 桌面专属末尾 `[data-app-edge]` 描边层；宽度/磨砂/渐变变更时发布到通道
+  - `content-layout.tsx` — 内容区分栏（页面轨道外层，只分配空间、不感知路由）：外层 `ResizablePanelGroup orientation="vertical"` 先切「上半部（主内容+右栏）/ 底栏（横跨整条内容区）」；上半部再嵌 `orientation="horizontal"` 切「主内容（PageTrack）/ 右栏」——右下角归底栏、无三方拼缝；面板取自 `ui/resizable`（shadcn 封装），尺寸用百分比字符串 + `withHandle` 把手；拖动期库直改几何、松手（`onLayoutChanged` 用户交互）才提交，尺寸与两条收起态合存 `STORAGE_KEYS.contentSplit` 单键（不用库自带 autoSaveId）；启动闸门放行后经 `readTextSync` 同步取真值，首帧即用户记录；收起态单源在 `store/content-split`（本文件订阅后驱动面板、并负责把尺寸+收起态落盘），面板标题区保留关闭按钮（图标与标题栏该面板开关同款）且与标题栏共用同一 store（只收不起，展开仍只在标题栏/热键）；右栏最小宽 200、底栏最小高 160、主内容最小 560×360（px 常量），`collapsedThreshold="100%"` 让拖动只停在最小尺寸、不吸附收起；内容区宽 <760 / 高 <520 自动收起对应面板（不落盘，窗口恢复还原，标题栏按钮随之受限）；DEV 日志（拖动开始/提交、尺寸恢复、自动收起原因）；收起展开过渡只给用户切换播——临时在根上挂 `data-animating="open|close"`（CSS 过渡面板外层内联 `flex-grow` + 面板内容 opacity，目标由根上 `data-off-*` 与布局层同批写入；时长取快档单源 `--push-duration-fast`、缓动 `--ease-push`，内容 0.7 档、错峰 0.3 档，总时长 200ms），拖动按下、自动收起、减少动效、主题圆形揭示时立即摘除并即时到位，连续切换改写目标值即从当前视觉位置折返
+  - `content-split-actions.tsx` — 标题栏里的内容区右栏/底栏开关（主题菜单之后、窗口置顶之前；登录页不挂载）：状态读 `store/content-split`，图标反映当前状态、提示文案描述下一次点击并带 registry 快捷键位；窄屏自动收起时置灰（`aria-disabled`）并保留可点，点击用 toast 说明原因
   - `page-canvas.tsx` — 页面背景画布：自持锚点槽位（`CanvasAnchor` + useSyncExternalStore，无 context）；每页两层＝壳色噪点晕染衬层 + 半透磨砂内容面；`surfaceLeft(mode, desktop)` 是本模块拥有的偏移算法（left 直写 style）；`CanvasOwner active` 声明当前页——路由轨道保活多页时只有当前页铺画布（半透内容面不得叠加）
-  - `page-track.tsx` — 内容区路由轨道（替换 Outlet，`PageTrack`/`PageSlot` 均 memo 隔离外壳重渲染）：唯一的路由监听，按 `registry.handle.motion` 决定动画；最多 3 个页面槽，当前页居中、序号越大越靠左；换页只改轨道位移 → 平移一个槽宽（旧页右移出屏、新页从左侧紧贴移入，无透明度变化）；方向：历史穿越比条目号（小＝往左），菜单点击比目标槽停在哪一侧（左邻＝往右、右邻＝往左，没缓存过的新页往右）；每槽覆盖自己的 Location、自带 ScrollArea 与 Suspense，非当前槽 inert + aria-hidden、收尾后 `visibility:hidden` 冻结；骨架屏阶段的槽不保活（`SlotReady` 报就绪后才计入缓存）；懒加载骨架（PageCanvas 衬底 + Skeleton）同文件内定义
+  - `page-track.tsx` — 内容区路由轨道（替换 Outlet，挂在 content-layout 的主内容槽内，`PageTrack`/`PageSlot` 均 memo 隔离外壳重渲染）：唯一的路由监听，按 `registry.handle.motion` 决定动画；最多 3 个页面槽，当前页居中、序号越大越靠左；换页只改轨道位移 → 平移一个槽宽（旧页右移出屏、新页从左侧紧贴移入，无透明度变化），右栏/底栏不随换页移动；方向：历史穿越比条目号（小＝往左），菜单点击比目标槽停在哪一侧（左邻＝往右、右邻＝往左，没缓存过的新页往右）；每槽覆盖自己的 Location、自带 ScrollArea 与 Suspense，非当前槽 inert + aria-hidden、收尾后 `visibility:hidden` 冻结；骨架屏阶段的槽不保活（`SlotReady` 报就绪后才计入缓存）；懒加载骨架（PageCanvas 衬底 + Skeleton）同文件内定义
   - `class-names.ts` — 跨文件共享的外壳/页面类串单源：`PAGE_PAD_CLASS`（普通内容页内边距，chat 全高自滚页不接入）、`FILL_CLASS`（撑满父容器的基础组合，flex/纵向/间距由使用处追加）、`SIDEBAR_LABEL_CLASS`（侧栏折叠淡出标签盒，品牌区另追 `w-0/flex-none`）
-  - `chrome-group.tsx` — 窗口 chrome 动作簇：`ChromeGroup` 左右容器（`side` 决定 pl-2/pr-2）+ `ChromeActions` 右端主题/置顶/窗口三键（标题栏与登录页顶栏共用）；只统一这一层，整条 chrome 条不抽象（壳内流内 header、登录 fixed、浏览器档两个悬浮角定位不同）
+  - `chrome-group.tsx` — 窗口 chrome 动作簇：`ChromeGroup` 左右容器（`side` 决定 pl-2/pr-2）+ `ChromeActions` 右端主题/（可选插槽）/置顶/窗口三键（标题栏与登录页顶栏共用，登录页不传插槽）；只统一这一层，整条 chrome 条不抽象（壳内流内 header、登录 fixed、浏览器档两个悬浮角定位不同）
   - `icon-action.tsx` — 图标按钮 + 下方提示的统一外壳（标题栏/侧栏图标动作一律用它）
-  - `title-bar.tsx` — `h-titlebar` 自绘标题栏：三态开关/前进后退 + 拖动区 + 主题/置顶/窗口三键
-  - `sidebar-body.tsx` — 侧栏正文（品牌+导航+用户；固定与悬浮共用，tooltip=false 抑制全宽态提示）：品牌区/导航区为本文件就地定义的小段，用户区独立成文件
+  - `title-bar.tsx` — `h-titlebar` 自绘标题栏：三态开关/前进后退 + 拖动区 + 主题/内容区右栏底栏开关/置顶/窗口三键
+  - `sidebar-body.tsx` — 侧栏正文（品牌+导航+用户；固定与悬浮共用，tooltip=false 抑制全宽态提示）：品牌区/导航区为本文件就地定义的小段，用户区独立成文件；导航项可用性由 `lib/access` 的 `useAccess` 按路由 `handle.access` 判定，受限项保持可见但加锁图标/降透明度，tooltip 与 title 给出所需权限（点击仍进入该页，由页面层展示无权限空状态）
   - `sidebar-user.tsx` — 侧栏底部用户区菜单（明暗模式=菜单内一行右侧内嵌 `ThemeMenu`（`skipSame` + 滑完游标才收菜单 + 事务再等浮层），个性化=`/settings?section=personalize` 深链、设置、登录/退出）
   - `sidebar-cycle-trigger.tsx` — 三态循环按钮（提示=下次点击效果；移动端=抽屉开合）
   - `sidebar-peek.tsx` — hidden 态左缘悬浮侧栏（官方非模态 Sheet + 热区 hover 唤出；几何/磨砂/1px 极浅描边/遮罩统一在 index.scss 的 sidebar-peek 契约条目里）
@@ -78,25 +80,27 @@ components/：
 
 routes/：
 - `router.tsx` — 路由表：`/login` 独立于外壳；壳内子路由取自 `registry.ts`
-- `registry.ts` — 外壳子页路由表（home/chat/flow/settings + 桌面专属 test，除 home 外全部 lazy 分包）：`createHashRouter` 的 children 与路由轨道共用同一数组；每页 `handle.motion` 携动效档（enter 整页动 / query 同页地址档 / reveal 页内错峰档），`handle.nav` 携侧栏导航元数据（label/icon/order；不挂 nav 的页不进侧栏，桌面专属 test 随路由注册一并门控），`navItems` 由此派生、`sidebar-body`（导航段）只消费；`resolveRoute(path)` 一次匹配同时给出页面组件与动效档
-- `pages/` — `home` 演示页 / `chat` AI 对话 / `flow` 流程测试 / `login` 表单登录（预留校验；根是 `h-svh overflow-y-auto` 滚动容器 + 内层 `min-h-full` 居中盒——主干 overflow 恒 hidden，页面必须自滚，矮窗口不截断；左上角返回入口：可后退走 navigate(-1)，直达时兜底 replace 到主界面，桌面档摆在 40px 拖动条左端、web 档悬浮左上）/ `settings` 官方 Tabs 分区导航（当前分区以 URL `?section=` 为唯一事实，非法值回落首项；≥768 可拖宽分栏；分区表（id/label/icon/Panel/action）同时驱动导航、面板与标题行右侧动作：快捷键=Item/Kbd 清单，个性化=明暗模式（`ThemeMenu`）+ 磨砂两滑杆 + 背景渐变开关 + 四角圆角四滑杆 + 标题右侧「重置」回默认档；滑杆拖动期只更新本地草稿并直写 CSS 通道做即时预览，松手（`onValueCommitted`）才提交 store；宽档分栏布局由 `usePersistedValue` 异步读取，未完成显示区块骨架、失败显示重试卡，不先按默认值渲染再跳变）/ `test-token` sidecar 令牌测试（仅桌面，结果用官方 Code Block）
+- `registry.ts` — 外壳子页路由表（home/chat/flow/settings + 桌面专属 test + 受限示例 restricted，除 home 外全部 lazy 分包；末尾 `path:"*"` 为未知路径兜底页，不要求额外权限）：`createHashRouter` 的 children 与路由轨道共用同一数组；每页 `handle.motion` 携动效档（enter 整页动 / query 同页地址档 / reveal 页内错峰档），`handle.nav` 携侧栏导航元数据（label/icon/order；不挂 nav 的页不进侧栏，桌面专属 test 随路由注册一并门控），`handle.access` 携所需权限（权限声明唯一处；菜单可用性与页面准入都从它派生）；`navItems` 由此派生、`sidebar-body`（导航段）只消费；`resolveRoute(path)` 一次匹配同时给出页面组件、动效档与权限声明；`restricted` 为演示项（声明 `demo:restricted`，正式接入角色体系后删除）
+- `pages/` — `home` 演示页 / `chat` AI 对话 / `flow` 流程测试 / `login` 表单登录（预留校验；根是 `h-svh overflow-y-auto` 滚动容器 + 内层 `min-h-full` 居中盒——主干 overflow 恒 hidden，页面必须自滚，矮窗口不截断；左上角返回入口：可后退走 navigate(-1)，直达时兜底 replace 到主界面，桌面档摆在 40px 拖动条左端、web 档悬浮左上）/ `settings` 官方 Tabs 分区导航（当前分区以 URL `?section=` 为唯一事实，非法值回落首项；≥768 可拖宽分栏；分区表（id/label/icon/Panel/action）同时驱动导航、面板与标题行右侧动作：快捷键=Item/Kbd 清单，个性化=明暗模式（`ThemeMenu`）+ 磨砂两滑杆 + 背景渐变开关 + 四角圆角四滑杆 + 标题右侧「重置」回默认档；滑杆拖动期只更新本地草稿并直写 CSS 通道做即时预览，松手（`onValueCommitted`）才提交 store；宽档分栏布局由 `usePersistedValue` 异步读取，未完成显示区块骨架、失败显示重试卡，不先按默认值渲染再跳变）/ `test-token` sidecar 令牌测试（仅桌面，结果用官方 Code Block）/ `empty-state` 空状态页（两种语义共用一套 shadcn `Empty`：`NotFoundPage` 页面不存在=未知路径兜底，`AccessDeniedPage` 没有访问权限=路由权限未通过；标题、当前路径回显、所需权限、「返回首页」、可后退时给「返回上一页」；沿用 `PageCanvas` + `PAGE_PAD_CLASS`，命中时 DEV 记录判定依据）/ `restricted-demo` 受限示例演示页（仅当当前账号具备 `demo:restricted` 时渲染，说明演示用途与解除/恢复方式；正式接入角色体系后删除）
 
 dev/（零依赖原生工具，可整体拷走；独立使用的开发期工具，不属于组件体系，不参与组件化与复用合并，不为风格统一改造、不接入 ui/lib/hooks 通道）：
 - `layer-inspector.ts` — 层级背景检视器：`mountLayerInspector(storage)` 唯一导出（幂等，返回卸载函数；卸载会清 `data-dlx` 标记与 window 监听）。位置存档不直连存储：由宿主注入异步 `{ read(key), write(key, value) }`（main 在 DEV 下传 `lib/storage` 的 `readText`/`writeText`），挂载前先异步读出位置再建 UI。自动扫描绘制层（html、body 恒为 #0/#1 底层，其余按 `getComputedStyle` 自带 bg/背景图/backdrop-filter/box-shadow/outline 判定），文档顺序即层序并记最近登记父层；`[data-dlx=n]` + 注入样式表逐层 `visibility` 切换——只在「祖先正被隐藏会继承下来」时才补 visible，绝不顶掉宿主自己的 visibility；默认由内向外，⇄ 反转，⟳ 重扫；面板 = 可拖动吸边按钮 + 进度条/数字框 + tag#id.class.data-* 折叠树，点标签复制裸词（剪贴板失败可框选 Ctrl+C）；工具自身打 `[data-dlx-ui]`，扫描跳过且样式永久豁免
 
-store/（zustand persist；落盘键名一律取 `lib/storage.ts` 登记表，经其 `storageAdapter` 异步写入；`skipHydration` 关闭自动水合，由 `components/app-boot.tsx` 在 IndexedDB 装载完成后统一 `persist.rehydrate()`；`migrate`+`merge` 共用同一收敛函数，每次加载挡住脏值）：
+store/（zustand；`ui`/`auth` 走 persist 落盘，键名一律取 `lib/storage.ts` 登记表，经其 `storageAdapter` 异步写入；`skipHydration` 关闭自动水合，由 `components/app-boot.tsx` 在 IndexedDB 装载完成后统一 `persist.rehydrate()`；`migrate`+`merge` 共用同一收敛函数，每次加载挡住脏值；`content-split` 为运行态不接 persist）：
 - `ui.ts` — 侧栏三态模式 + 宽度（默认 260px，与 index.scss `--sidebar-width` 兜底同值；收敛进 `sidebar-channel` 的 160–480）+ 个性化四项组（`glassBlur` 12px、`glassFilm` 76%、`bgWash` 默认开、`corners` 四角半径 7px；默认档 `*_DEFAULT` 与上限 `BLUR_MAX`/`FILM_MAX`/`RADIUS_MAX` 同处登记，滑杆、迁移与回默认档共用；**改默认不做旧数据兼容**——旧值原样留着，要统一就在个性化里重置）+ `resetPersonalize()`（一次回默认档，不动侧栏）；v4（v1 迁旧二态、v2 加磨砂、v3 撤系统材质、v4 四角半径入库）
 - `auth.ts` — 登录态（预留，无服务端校验）；非字符串用户名按未登录处理
+- `content-split.ts` — 内容区右栏/底栏收起态单源（标题栏开关与布局层共用；运行态不接 persist，尺寸与收起态仍由 `content-layout` 写 `STORAGE_KEYS.contentSplit` 一个键）：用户收起两布尔 + 窄屏自动收起两布尔 + `hydrate/setAuto/toggle`（`toggle` 在自动收起期间静默忽略并留 DEV 痕）
 
 hooks/：
 - `use-mobile.ts` — 移动断点判定（768px 的 JS 侧唯一来源，与 index.scss 的 --breakpoint-md 同值）
 - `use-history-nav.ts` — 前进/后退可用性，直接转出 `lib/route-history` 的账本快照（不再自读 history.state）
 - `use-storage.ts` — 持久化上层钩子（只消费 `lib/storage` 异步 API 与订阅）：`useStorageHydration()` 转出启动阶段/结果/错误/是否等待自动重试/手动重试（AppBoot 的库打开、版本、导入三件事闸门；库打开失败按 1s 起指数退避最多 5 次，成功后清除错误）；`usePersistedValue(key)` 转出值 + `loadStatus`（loading/ready/error）+ `saveStatus`（idle/pending/saving/error）+ 重试，供局部区块骨架与错误卡驱动
-- `use-theme-switch.ts` — 明暗三选项唯一来源：`THEME_ROWS`（值/文案/图标表，新增档只改这里）+ `useThemeSwitch()`（返回乐观优先的 `shown` 与 `switchTo(next, at?, settleMs?, floorMs?)`：起点取点击处、拿不到坐标落视口中心、`settleMs` 让事务等游标滑到位再启动、`floorMs` 是滑行结束后再等一拍的下限（浮层收掉用）、生效明暗未变则只落状态不起全屏动画、失败回滚、连点作废过期事务）；`startThemeTransition` 的唯一调用方；控件形态不在这里，在 `components/option-switch.tsx`
+- `use-theme-switch.ts` — 明暗三选项唯一来源：`THEME_ROWS`（值/文案/图标表，新增档只改这里）+ `useThemeSwitch()`（返回乐观优先的 `shown` 与 `switchTo(next, at?, settleMs?, floorMs?)`：起点取点击处、拿不到坐标落视口中心、`settleMs` 让事务等游标滑到位再启动、`floorMs` 是滑行结束后再等一拍的下限（浮层收掉用）、生效明暗未变则只落状态不起全屏动画、失败回滚、连点作废过期事务、接受选择时先 `cancelSystemTransitions()` 作废待播的系统抖动）；`startThemeTransition` 的唯一手动调用方；控件形态不在这里，在 `components/option-switch.tsx`
 
 shortcuts/：
 - `registry.ts` — 快捷键单一来源：条目含 combo 结构、生效端、类别；`comboText/entryText` 派生展示串，`comboMatches` 供匹配，`effectiveShortcuts/shortcutById` 供安装与设置页（键位字面量只出现在这张表里）
 - `sidebar-hotkey.ts` — 三态循环热键（组合键取自 registry；注册表内置的两态 Ctrl+B 已移除，不再抢事件）
+- `content-split-hotkey.ts` — 内容区右栏/底栏收起切换热键（组合键取自 registry，行为与标题栏按钮共用 `store/content-split`）
 - `webview.ts` — 守卫安装器：拖入拦截常驻，block 类与 hotkey 类条目全部由清单驱动（行为表按 id 挂钩）
 
 lib/：
@@ -106,11 +110,12 @@ lib/：
 - `api.ts` — Eden 客户端（消费 backend）；`chat.ts` — AI SDK transport（消费 backend，fetch 白名单）
 - `sidebar-channel.ts` — 侧栏宽度通道：把 `--sidebar-width` 发布到文档根（`publishWidth/readWidth/nextWidth` + 可拖区间 `WIDTH_MIN`/`WIDTH_MAX`），使侧栏、画布、body Portal 的悬浮侧栏继承同一个值；宽度上下限在此单源，拖拽与持久化收敛共用
 - `route-history.ts` — 路由历史位置（全应用唯一读 `history.state.idx` 的地方）：只记上一条条目号 + 前进上界，`observePath()` 给出历史穿越方向与是否穿越，`subscribeHistory/historySnapshot` 出前进后退可用性；菜单点击的方向由 page-track 按槽位定
-- `storage.ts` — 持久化唯一门面（Dexie/IndexedDB，库名 `aigc-web`）：`records` 单表（主键 `key`，索引 `updatedAt`/`dirty`，每条带脏标记与内容更新时间供后续增量同步）；`STORAGE_KEYS` 登记全部逻辑键（含第三方库自管的键，只做索引不接管）；启动链路 `initStorage` 阶段化（打开→申请持久化许可→版本检查→幂等归一→首次 localStorage 全量导入→全量装载内存镜像）；内存为真源，`readText` 只读镜像，`writeText` 先内存后按键防抖（关键键 0ms / 中频偏好 300–400ms）并单事务 `bulkPut`/`bulkDelete` 批量提交；状态 `idle/pending/saving/error` 对外订阅（`pending/saving/error` 暴露给界面）；失败 requeue + 指数退避重试（上限 5 次）+ DEV 日志；写入前 `navigator.storage.estimate` 预判配额，空间不足降级为未落盘不抛；`BroadcastChannel` 广播变更键 + 回查 DB 刷新镜像做跨窗口同步（本地未落库键不被远端覆盖），`notifyKey` 区分来源（local/remote）并经 `subscribeStorageChange` 统一外发；主题首帧提示 cookie 只在此写入，`pagehide`/`visibilitychange` 自动 flush；`storageAdapter` 供 zustand persist，`src/dev/layer-inspector.ts` 是唯一豁免（可整体拷走的零依赖单文件，位置存储由宿主注入）
+- `storage.ts` — 持久化唯一门面（Dexie/IndexedDB，库名 `aigc-web`）：`records` 单表（主键 `key`，索引 `updatedAt`/`dirty`，每条带脏标记与内容更新时间供后续增量同步）；`STORAGE_KEYS` 登记全部逻辑键（含第三方库自管的键，只做索引不接管）；启动链路 `initStorage` 阶段化（打开→申请持久化许可→版本检查→幂等归一→首次 localStorage 全量导入→全量装载内存镜像）；内存为真源，`readText` 只读镜像，`readTextSync` 供启动闸门放行后的首帧同步取真值（未装载返回 null），`writeText` 先内存后按键防抖（关键键 0ms / 中频偏好 300–400ms）并单事务 `bulkPut`/`bulkDelete` 批量提交；状态 `idle/pending/saving/error` 对外订阅（`pending/saving/error` 暴露给界面）；失败 requeue + 指数退避重试（上限 5 次）+ DEV 日志；写入前 `navigator.storage.estimate` 预判配额，空间不足降级为未落盘不抛；`BroadcastChannel` 广播变更键 + 回查 DB 刷新镜像做跨窗口同步（本地未落库键不被远端覆盖），`notifyKey` 区分来源（local/remote）并经 `subscribeStorageChange` 统一外发；主题首帧提示 cookie 只在此写入，`pagehide`/`visibilitychange` 自动 flush；`storageAdapter` 供 zustand persist，`src/dev/layer-inspector.ts` 是唯一豁免（可整体拷走的零依赖单文件，位置存储由宿主注入）
 - `store-sync.ts` — 跨窗口 store 同步唯一登记处：`STORAGE_KEYS.ui/auth` → 对应 store 的 `persist.rehydrate()`（rehydrate 走内部 set 不触发 setItem，天然无回环）；只处理 remote 来源；出现形如 `{state, version}` 却未登记的键在开发环境告警一次
 - `glass-channel.ts` — 个性化旋钮通道：把 `--glass-blur`/`--film-a`/`--wash-a` 发布到文档根（`publishGlass`），内容面着色与模糊、衬层径向晕染只读这三个令牌，平台无关
 - `motion.ts` — 动效单源 = anime.js 唯一入口（动画库懒加载 `import("animejs")`，首屏主包不含）：`useMotionScope(root, register)` 返回 `{ scope, ready }`（官方 createScope 生命周期，卸载 revert；异步就绪后调用方按 ready 补播）、`revealStagger` 错峰挤入、`shake` 抖动反馈、`prefersReducedMotion` 守卫（切页平移不走 JS，见 layout/page-track）。只做局部动画，页面禁止直接 import animejs 或写死数值
-- `theme-transition.ts` — 主题切换事务 `startThemeTransition({apply, rollback, x, y})`：写 --vt-* 触发圆形揭示，回调内只同步落 html class（新快照随后捕获）；提交半途抛错即调用 rollback，无 VT/VT 自身抛错则降级为直接切换，`ready`/`finished` 的 reject 一律接住。反馈分层归调用方：按钮先切，事务延后一个任务
+- `theme-transition.ts` — 主题切换事务 `startThemeTransition({apply, rollback, x, y, priority?})`：手动选择与系统明暗变化共用这一条圆形揭示链路，写 --vt-* 触发过渡，回调内只同步落 html class（新快照随后捕获）；优先级 user > system，同一时刻最多一条 VT，播放中到达的请求排队（手动后到覆盖先到、系统抖动只留最后一次）；`cancelSystemTransitions()` 供用户手动选择作废待播系统过渡；`onThemeTransitionStart(listener)` 在快照捕获前同步通知其它动效收敛、`isThemeTransitioning()` 供启动新过渡前自查；reduced-motion / 窗口隐藏 / 无 VT / `startViewTransition` 抛错一律直接切换（DEV 记跳过原因），提交半途抛错即回滚，`ready`/`finished` 的 reject 一律接住。反馈分层归调用方：按钮先切，事务延后一个任务
+- `access.ts` — 权限判定单源（占位实现）：`RouteAccess{permission,label,demo?}` 挂在路由 `handle.access`；`permissionsOf(username)`/`currentPermissions()` 按登录用户名查 `PLACEHOLDER_GRANTS`（占位来源，未登录用 guest，`"*"` 全放行），`canAccessWith(access, owned)` 纯判定、`useAccess()` 响应式入口；未声明权限的路由默认放行，菜单可用性与页面准入共用这一份判定，正式接入角色体系时只替换 `permissionsOf()`
 
 ## src-bun/（Bun + Elysia；桌面 sidecar / 服务器部署两形态，靠令牌区分）
 
@@ -152,7 +157,8 @@ lib/：
 | 内容面偏移 | src-web/components/layout/page-canvas.tsx 的 `surfaceLeft(mode, desktop)` |
 | 圆角 | 四角半径真值在 src-web `store/ui.ts`（默认 7=RADIUS_DEFAULT；index.scss `--app-radius` 兜底恒取 0，真值由通道在首绘前写入）→ `lib/radius-channel` 只把值写进文档根 `--app-radius`（未最大化输出四值、最大化输出 0，桌面与 web 同值）；形状与裁切是静态规则 `html, body{border-radius:var(--app-radius);overflow:hidden}`（用户实测生效档，两层盒重合：body 无 margin 与 html 同原点同尺寸，故无逐角递减；原点不同的层——壳根/登录页根/页面组件——一律禁止再画圆角）；`[data-app-edge]` 描边与 `::view-transition` 底色层只是按同一变量画线/画底，不额外裁切。Win 侧 setup 设 `DWMWCP_DONOTROUND` 关掉系统 8px 裁切，其余平台无分支 |
 | 个性化旋钮 `--glass-blur`·`--film-a`·`--wash-a` | src-web `store/ui.ts`（个性化设置）→ `lib/glass-channel.ts` 单点发布到文档根 → index.scss 内容面着色规则 + 衬层径向晕染（`--wash-a` 为 0 即整体关掉背景渐变）；衬层壳色恒实心，与平台无关 |
-| 持久化键清单 | src-web/lib/storage.ts `STORAGE_KEYS`（store/theme/分栏布局/检视器位置唯一登记处，新增必须登记且键值不可再改） |
+| 持久化键清单 | src-web/lib/storage.ts `STORAGE_KEYS`（store/theme/设置页分栏/内容区分栏/检视器位置唯一登记处，新增必须登记且键值不可再改） |
+| 路由权限声明 | src-web/routes/registry.ts 的 `handle.access`（唯一声明处）↔ src-web/lib/access.ts 的 `useAccess`/`canAccessWith`（占位来源 `PLACEHOLDER_GRANTS`，正式鉴权只替换 `permissionsOf`）↔ sidebar-body 菜单可用性 + page-track 页面准入（同源派生，避免菜单与页面两套判断） |
 | 出场时机（启动最小化 → 首屏还原聚焦） | src-tauri/lib.rs setup + `commands::present_window` ↔ src-web/components/layout/window-bootstrap.tsx |
 | 系统材质（已撤销） | 不用 `windowEffects`/`set_effects`：材质连带 DWM 投影与 1px 框线且关不掉；磨砂一律 src-web CSS（见「个性化旋钮」契约行） |
 | 移动断点 768 | src-web/hooks/use-mobile.ts ↔ index.scss `--breakpoint-md`/媒体查询（壳最小 375×667 见根 AGENTS） |

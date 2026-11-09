@@ -1,6 +1,6 @@
 # STORAGE —— 数据存在哪、凭什么规则写
 
-> 本文件只回答两件事：本地数据存在哪、按什么规则读写。目录职责见 `STRUCTURE.md`，规则条款见根 `AGENTS.md` 与 `src-web/AGENTS.md`，术语以 `GLOSSARY.md` 为准。本文只补这些文档没有的实现事实，不重复陈述。
+> 本文件只回答两件事：本地数据存在哪、按什么规则读写。目录职责见 `STRUCTURE.md`，规则条款见根 `AGENTS.md` 与 `src-web/AGENTS.md`。本文只补这些文档没有的实现事实，不重复陈述。
 > 代码事实以 `src-web/src/lib/storage.ts` 为唯一准绳；本文与代码冲突时以代码为准并修本文。
 
 ## 1. 真值分层
@@ -18,7 +18,7 @@
   - 强杀/崩溃会丢失尚未 flush 的写；`pagehide` 与 `visibilitychange(hidden)` 只缩短丢失窗口，不构成保证。
   - 跨窗口只能看到对方「已落库并广播」后的值，看不到对方内存里的待落库值（见 §4）。
   - 不得用「库里有什么」推断业务状态；库是副本，界面只认 store。
-- **不要把内存镜像叫缓存**（见 `GLOSSARY.md`「内存镜像」「真值 vs 缓存」）。本仓库真正可重建的缓存只有：
+- **不要把内存镜像叫缓存**（内存镜像是持久化层的真源，只有可由它重建的副本才算缓存）。本仓库真正可重建的缓存只有：
   - `lib/tauri` 的 sidecar 令牌 Promise 缓存：只缓存非空结果，`sidecar-terminated` 时清空后可经 IPC 重取。
   - `routes/pages/settings.tsx` 的 `rawRef`：已装载分栏布局原文的运行时镜像，可从持久化记录重建。
   - 路由槽保活的组件状态与滚动位置：纯内存态，不落盘、重建即默认值。
@@ -152,8 +152,8 @@
   - 关系（`relations.ts`）：`user.posts` 一对多、`post.author` 多对一。
   - `system/generated/schema.ts` 仅导出 `post`/`user` 的 insert schema，供请求校验。
 - Redis：`src-bun/app/lib/redis.ts` 按 `REDIS_URL` 惰性连接；`.env` 默认未启用，当前不承载任何业务持久化表。
-- 聊天：流式、无状态，不落消息/会话表（见 `GLOSSARY.md`「对话 vs 会话」）。
-- **同步与对象存储尚未实现**（状态〔规划〕，见 `GLOSSARY.md` 第八节）：
+- 聊天：流式、无状态，不落消息/会话表（此处的「会话」指 HTTP 登录会话/会话 Cookie，属规划态鉴权概念，与 `/chat` 页内存中的对话消息无关）。
+- **同步与对象存储尚未实现**：
   - 没有上传/下载同步接口，没有同步包、墓碑、乐观锁或任务锁。
   - 没有对象存储服务、对象键、数据索引表、用户关联表。
   - 客户端 `records` 只存本机，不向服务端提交。
@@ -172,4 +172,4 @@
 4. **是否参与将来同步**：值必须能序列化成字符串；`dirty`/`updatedAt` 由门面自动维护，无需调用方写。追加型数据按单条逻辑键增量写，禁止整包重写数组。需要删除传播时注意：墓碑尚未实现。
 5. **失败降级**：写入不得向调用方抛错、不得等落库结果；需要把保存态暴露给界面时用 `saveStatus` + `retry`；评估体积与 2 MiB 空间阈值。
 6. **加载态**：页面在挂载时就要读的值走 `usePersistedValue`，区分 `loading`/空/`error`；布局或几何依赖它时不得先按默认值渲染；`error` 必须给重试。
-7. **schema 与文档**：新增表/索引抬 `SCHEMA_VERSION` 并补 `stores`；store 载荷变更按 `version`/`migrate`/`merge` 处理；同一提交更新 `STRUCTURE.md` 对应条目（规则见根 `AGENTS.md`）；出现新术语时补 `GLOSSARY.md`。
+7. **schema 与文档**：新增表/索引抬 `SCHEMA_VERSION` 并补 `stores`；store 载荷变更按 `version`/`migrate`/`merge` 处理；同一提交更新 `STRUCTURE.md` 对应条目（规则见根 `AGENTS.md`）。

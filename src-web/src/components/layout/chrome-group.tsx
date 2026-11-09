@@ -34,11 +34,13 @@ export function ChromeGroup({ side, children }: ChromeGroupProps) {
   )
 }
 
-/** 右端动作簇：主题菜单 + 窗口置顶 + 窗口三键（桌面端三键由组件自身门控） */
-export function ChromeActions() {
+/** 右端动作簇：主题菜单 + 可选的内容区开关 + 窗口置顶 + 窗口三键（桌面端三键由组件自身门控）
+ * @param children 插在主题菜单之后、置顶之前的动作（登录页不传，那里没有内容区分栏） */
+export function ChromeActions({ children }: { children?: ReactNode }) {
   return (
     <ChromeGroup side="right">
       <ThemeMenu />
+      {children}
       <WindowPin />
       <WindowControls />
     </ChromeGroup>

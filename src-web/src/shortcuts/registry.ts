@@ -2,9 +2,10 @@
 
 import { isTauri } from "@/lib/tauri"
 
-/** 组合键 @property ctrl 需要 Ctrl（macOS 上即 ⌘） @property shift 需要 Shift @property key KeyboardEvent.key */
+/** 组合键 @property ctrl 需要 Ctrl（macOS 上即 ⌘） @property alt 需要 Alt @property shift 需要 Shift @property key KeyboardEvent.key */
 export interface Combo {
   ctrl?: boolean
+  alt?: boolean
   shift?: boolean
   key: string
 }
@@ -30,6 +31,20 @@ const shortcutEntries: ShortcutEntry[] = [
     kind: "hotkey",
     combos: [{ ctrl: true, key: "b" }],
     action: "侧栏 显示→折叠→隐藏 三态循环（移动视口为抽屉开合）",
+    platform: "all",
+  },
+  {
+    id: "content-split-right",
+    kind: "hotkey",
+    combos: [{ ctrl: true, alt: true, key: "r" }],
+    action: "内容区右侧栏 收起/展开",
+    platform: "all",
+  },
+  {
+    id: "content-split-bottom",
+    kind: "hotkey",
+    combos: [{ ctrl: true, alt: true, key: "b" }],
+    action: "内容区底栏 收起/展开",
     platform: "all",
   },
   {
@@ -64,10 +79,11 @@ const shortcutEntries: ShortcutEntry[] = [
   },
 ]
 
-/** 组合键展示文本 @param c 组合键 @returns 形如 Ctrl/⌘ + Shift + R */
+/** 组合键展示文本 @param c 组合键 @returns 形如 Ctrl/⌘ + Alt + Shift + R */
 export function comboText(c: Combo): string {
   const parts: string[] = []
   if (c.ctrl) parts.push("Ctrl/⌘")
+  if (c.alt) parts.push("Alt")
   if (c.shift) parts.push("Shift")
   parts.push(c.key.length === 1 ? c.key.toUpperCase() : c.key)
   return parts.join(" + ")
@@ -82,11 +98,15 @@ export function entryText(e: ShortcutEntry): string {
  * @param c 组合键 @param e 键盘事件的关键字段 @returns 是否命中 */
 export function comboMatches(
   c: Combo,
-  e: Pick<KeyboardEvent, "key" | "ctrlKey" | "metaKey" | "shiftKey">
+  e: Pick<
+    KeyboardEvent,
+    "key" | "ctrlKey" | "metaKey" | "altKey" | "shiftKey"
+  >
 ): boolean {
   return (
     e.key.toLowerCase() === c.key.toLowerCase() &&
     e.shiftKey === !!c.shift &&
+    e.altKey === !!c.alt &&
     (!c.ctrl || e.ctrlKey || e.metaKey)
   )
 }

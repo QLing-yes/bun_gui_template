@@ -118,6 +118,9 @@
      400ms 让位移摊到更多帧，掉帧也不集中在开头 */
   --push-duration: 400ms;
   --ease-push: cubic-bezier(0.33, 1, 0.68, 1);
+  /* 动效快档单源：面板展开/收起等短几何过渡用（内容淡入淡出与错峰均按 0.7 / 0.3 比例从它派生，
+     见下方内容区分栏过渡；不要在组件里另写时长常量） */
+  --push-duration-fast: 200ms;
   /* 个性化旋钮（真值由 lib/glass-channel 写进文档根，此处仅兜底）：
      `--glass-blur` 内容面自糊半径；`--film-a` 内容面壳色不透明度 %；`--wash-a` 衬层背景渐变系数（1 开 / 0 关）。
      默认档与上限在 store/ui.ts 的 *_DEFAULT·*_MAX，改一处两处一起动；只作用于 HTML 渲染，衬层恒实心 */
@@ -214,7 +217,8 @@ html {
    4) [data-sidebar=sidebar]                        桌面档强制透明（压过 CLI 基类 bg-sidebar）
    5) [data-slot=sidebar-peek]                      悬浮侧栏几何+磨砂+1px 极浅描边（覆写 SheetContent 的 data-slot 与 side=left 定位类）
    6) [data-slot=sheet-overlay]:has(~ …)            非模态 Sheet 不压遮罩（Portal 内遮罩与面板夹 Base UI 辅助 span，故用 ~）
-   7) [data-slot=resizable-handle]::before          拖拽线（CLI ResizableHandle 不透传 children，只能画伪元素）
+   7) [data-slot=resizable-handle]::before          拖拽线（CLI ResizableHandle 不透传 children，只能画伪元素；
+      竖向手柄用 --line-v，纵向分组的横向手柄按 aria-orientation=horizontal 转用 --line-h）
    8) [data-slot=separator|item-separator|dropdown-menu-separator] 淡出线（Item 会改写 data-slot，需单列）
    9) [data-slot=kbd]                               徽标底色压过 CLI 的 bg-muted（衬在 --shell 上不可见）
    10) [data-sidebar=menu-button] 态色              底色：hover 与选中同为 --sidebar-accent(10%)，按下 --chrome-press(16%)；
@@ -484,7 +488,7 @@ body {
   color: var(--foreground);
 }
 
-/* 设置页分栏手柄线：CLI ResizableHandle 不透传 children，线画在 handle ::before 上；
+/* 分栏手柄线：CLI ResizableHandle 不透传 children，线画在 handle ::before 上；
    恒显 1px、两端 4% 全透明（--line-v），悬停/拖拽一律不变色 */
 [data-slot="resizable-handle"]::before {
   content: "";
@@ -494,6 +498,54 @@ body {
   width: 1px;
   transform: translateX(-50%);
   background-image: var(--line-v);
+}
+
+/* 纵向分组的横向手柄（上下分栏）：同规格转 90°，改用 --line-h；aria-orientation 由库按分组朝向给出 */
+[data-slot="resizable-handle"][aria-orientation="horizontal"]::before {
+  inset-block: auto;
+  inset-inline: 0;
+  top: 50%;
+  left: 0;
+  width: auto;
+  height: 1px;
+  transform: translateY(-50%);
+  background-image: var(--line-h);
+}
+
+/* 内容区分栏收起/展开过渡（components/layout/content-layout.tsx）：只在按钮/热键切换期间由布局层
+   在根上临时挂 data-animating="open|close"——拖动、自动收起、减少动效、主题快照期间一律不挂，几何瞬时到位。
+   库把布局份额写成面板外层的内联 flex-grow（同组两块同时改写、和恒为 100），
+   所以过渡 flex-grow 即可让两侧同步缩放；内容层只动 opacity（合成友好），不碰 padding/margin。
+   时序与速度全部由快档单源派生（T=--push-duration-fast，≈200ms）：
+   - 内容 = 0.7T，比几何略快，文字来不及在压缩中变形；
+   - 错峰 = 0.3T：open 几何 0→T、内容 0.3T→T（先出几何再淡入）；close 内容 0→0.7T、几何 0.3T→T（先淡出再收）。
+   总时长恒为 T；减少动效的压平由上方全局媒体查询统一接管，JS 侧另在 content-layout 自查跳过 */
+[data-slot="content-split"][data-animating="open"] [data-split-anim] {
+  transition: flex-grow var(--push-duration-fast) var(--ease-push);
+}
+
+[data-slot="content-split"][data-animating="open"]
+  [data-slot="content-split-panel-body"] {
+  transition: opacity calc(var(--push-duration-fast) * 0.7) var(--ease-push)
+    calc(var(--push-duration-fast) * 0.3);
+}
+
+[data-slot="content-split"][data-animating="close"] [data-split-anim] {
+  transition: flex-grow calc(var(--push-duration-fast) * 0.7) var(--ease-push)
+    calc(var(--push-duration-fast) * 0.3);
+}
+
+[data-slot="content-split"][data-animating="close"]
+  [data-slot="content-split-panel-body"] {
+  transition: opacity calc(var(--push-duration-fast) * 0.49) var(--ease-push);
+}
+
+/* 内容可见性目标由布局层写在根上（与 data-animating 同批），React 只负责 inert/aria-hidden */
+[data-slot="content-split"][data-off-right]
+  [data-slot="content-split-panel-body"][data-side="right"],
+[data-slot="content-split"][data-off-bottom]
+  [data-slot="content-split-panel-body"][data-side="bottom"] {
+  opacity: 0;
 }
 
 /* 键位徽标：内容区底色已是 --shell，官方 bg-muted(0.97) 衬在其上几乎不可见 → 白底 + 边框环 + 实色字 */

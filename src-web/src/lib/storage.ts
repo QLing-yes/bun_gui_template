@@ -85,6 +85,8 @@ export const STORAGE_KEYS = {
   theme: "theme",
   /** 设置页分栏布局 id（落盘键由本模块补 react-resizable-panels 前缀） */
   settingsLayout: "aigc-settings-split",
+  /** 内容区右栏/底栏分栏布局（JSON：右栏比例、底栏比例、两条收起态） */
+  contentSplit: "aigc-content-split",
   /** 层级检视器悬浮按钮位置（键由 src/dev/layer-inspector.ts 自持） */
   layerInspector: "dlx:pos",
 } as const
@@ -98,6 +100,7 @@ const DEBOUNCE_BY_KEY: Record<string, number> = {
   [STORAGE_KEYS.theme]: 0,
   [STORAGE_KEYS.ui]: 400,
   [SETTINGS_LAYOUT_KEY]: 400,
+  [STORAGE_KEYS.contentSplit]: 400,
   [STORAGE_KEYS.layerInspector]: 0,
 }
 
@@ -470,6 +473,12 @@ function broadcast(keys: string[]): void {
 /** 异步读取原始字符串值；只读内存镜像，不等库确认 @param key 逻辑键 @returns 存储值；没有记录返回 null */
 export async function readText(key: string): Promise<string | null> {
   await initStorage()
+  return cache.get(key) ?? null
+}
+
+/** 同步读缓存镜像：只供启动闸门放行后的首帧初始化（此时缓存已装载），未就绪返回 null
+ * @param key 逻辑键 @returns 已装载值；未装载或没有记录返回 null */
+export function readTextSync(key: string): string | null {
   return cache.get(key) ?? null
 }
 

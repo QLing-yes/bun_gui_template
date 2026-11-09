@@ -30,7 +30,9 @@ import { CanvasOwner, PageCanvas } from "@/components/layout/page-canvas"
 import { RevealPolicyProvider } from "@/components/stagger-reveal"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Skeleton } from "@/components/ui/skeleton"
+import { useAccess } from "@/lib/access"
 import { observePath } from "@/lib/route-history"
+import { AccessDeniedPage } from "@/routes/pages/empty-state"
 import { resolveRoute } from "@/routes/registry"
 import { cn } from "cn"
 
@@ -190,6 +192,8 @@ const PageSlot = memo(function PageSlot({
   active: boolean
   onReady: (key: string) => void
 }) {
+  /** 路由准入判定（账号变化即重算）：菜单与页面共用 lib/access 的同一份声明与判定 */
+  const checkAccess = useAccess()
   const resolved = useMemo(() => {
     const route = resolveRoute(slot.path)
     const { pathname, search, hash } = parsePath(slot.path)
@@ -202,12 +206,15 @@ const PageSlot = memo(function PageSlot({
     }
     return {
       Component: route.Component,
+      access: route.access,
+      // 无权限时不渲染目标页（也就不会加载它的懒分包），改由页面层展示无权限空状态
+      allowed: checkAccess(route.access),
       reveal: route.motion.reveal,
       contextValue: { location, navigationType: NavigationType.Pop },
     }
-  }, [slot.path, slot.key])
+  }, [slot.path, slot.key, checkAccess])
 
-  const { Component, reveal } = resolved
+  const { Component, access, allowed, reveal } = resolved
 
   return (
     <div
@@ -223,7 +230,13 @@ const PageSlot = memo(function PageSlot({
             <ScrollArea className="h-full text-sm">
               <Suspense fallback={<PageSkeleton />}>
                 <SlotReady slotKey={slot.key} onReady={onReady} />
-                {Component ? <Component /> : null}
+                {allowed ? (
+                  Component ? (
+                    <Component />
+                  ) : null
+                ) : (
+                  <AccessDeniedPage access={access} />
+                )}
               </Suspense>
             </ScrollArea>
           </RevealPolicyProvider>

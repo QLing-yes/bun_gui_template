@@ -5,7 +5,10 @@ import { MonitorIcon, MoonIcon, SunIcon } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 
 import { useTheme, type Theme } from "@/components/theme-provider"
-import { startThemeTransition } from "@/lib/theme-transition"
+import {
+  cancelSystemTransitions,
+  startThemeTransition,
+} from "@/lib/theme-transition"
 
 /** 明暗选项登记项 */
 type ThemeRow = {
@@ -113,6 +116,8 @@ export function useThemeSwitch() {
       setPending(null)
       return
     }
+    // 用户已明确选择：先作废尚未播放的系统抖动（包括无动画提前提交分支，避免之后再被系统过渡覆盖）
+    cancelSystemTransitions()
     const previous = theme
     const { x, y } = originOf(at)
     /** 过期事务直接丢弃（已有更新的选择在排队） */

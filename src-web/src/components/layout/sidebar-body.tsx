@@ -1,6 +1,8 @@
 // 侧栏正文：品牌 + 导航 + 用户区；固定侧栏与完全隐藏态的悬浮侧栏共用同一组件
 // 品牌与导航是纯展示段，就地定义；用户区带菜单交互，单独成文件（sidebar-user.tsx）
 
+import { LockIcon } from "lucide-react"
+import { useEffect } from "react"
 import { NavLink, useLocation } from "react-router"
 
 import { BRAND_NAME, BrandLogo } from "@/components/brand-logo"
@@ -15,6 +17,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
+import { useAccess } from "@/lib/access"
 import { navItems } from "@/routes/registry"
 import { cn } from "cn"
 
@@ -49,27 +52,59 @@ function SidebarBrand() {
  * @param tooltip 图标折叠态是否显示右侧项名提示（悬浮面板等全宽场景传 false） */
 function SidebarNav({ tooltip = true }: { tooltip?: boolean }) {
   const { pathname } = useLocation()
+  /** 权限判定（与页面准入同源）：账号变化即重算，受限项仍可见、可点击（进页后由页面层展示空状态） */
+  const checkAccess = useAccess()
+
+  // 关键位置日志：受限菜单项的渲染结果（判定依据见 lib/access 的占位授权表）
+  useEffect(() => {
+    if (!import.meta.env.DEV) return
+    console.debug(
+      "[access] menu restricted",
+      navItems
+        .filter((item) => !checkAccess(item.access))
+        .map((item) => item.to)
+    )
+  }, [checkAccess])
 
   return (
     <SidebarGroup>
       <SidebarGroupLabel>导航</SidebarGroupLabel>
       <SidebarMenu>
-        {navItems.map((item) => (
-          <SidebarMenuItem key={item.to}>
-            <SidebarMenuButton
-              render={<NavLink to={item.to} />}
-              isActive={
-                item.to === "/"
-                  ? pathname === "/"
-                  : pathname.startsWith(item.to)
-              }
-              tooltip={tooltip ? item.label : undefined}
-            >
-              <item.icon className="size-4 shrink-0" />
-              <span>{item.label}</span>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        ))}
+        {navItems.map((item) => {
+          const allowed = checkAccess(item.access)
+          // 受限项的原因说明：图标折叠态由 tooltip 展示，展开态由 title 展示
+          const reason = allowed
+            ? undefined
+            : `需要${item.access?.label ?? "权限"}`
+          return (
+            <SidebarMenuItem key={item.to}>
+              <SidebarMenuButton
+                render={<NavLink to={item.to} />}
+                isActive={
+                  item.to === "/"
+                    ? pathname === "/"
+                    : pathname.startsWith(item.to)
+                }
+                tooltip={
+                  tooltip
+                    ? allowed
+                      ? item.label
+                      : `${item.label}（${reason}）`
+                    : undefined
+                }
+                title={reason}
+                data-restricted={allowed ? undefined : ""}
+                className={allowed ? undefined : "opacity-60"}
+              >
+                <item.icon className="size-4 shrink-0" />
+                <span>{item.label}</span>
+                {!allowed && (
+                  <LockIcon className="ml-auto size-3.5 shrink-0 text-muted-foreground group-data-[collapsible=icon]:hidden" />
+                )}
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          )
+        })}
       </SidebarMenu>
     </SidebarGroup>
   )

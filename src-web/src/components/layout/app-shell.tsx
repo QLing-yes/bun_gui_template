@@ -3,6 +3,7 @@
 import { useEffect, useLayoutEffect, useRef } from "react"
 
 import { CanvasAnchor } from "@/components/layout/page-canvas"
+import { ContentLayout } from "@/components/layout/content-layout"
 import { PageTrack } from "@/components/layout/page-track"
 import { SidebarBody } from "@/components/layout/sidebar-body"
 import { SidebarPeek } from "@/components/layout/sidebar-peek"
@@ -12,6 +13,7 @@ import { Sidebar, SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { publishGlass } from "@/lib/glass-channel"
 import { publishWidth } from "@/lib/sidebar-channel"
 import { isTauri } from "@/lib/tauri"
+import { useContentSplitHotkey } from "@/shortcuts/content-split-hotkey"
 import { useSidebarHotkey } from "@/shortcuts/sidebar-hotkey"
 import { collapsibleFor, modeFromOpen, openFor, useUiStore } from "@/store/ui"
 
@@ -22,6 +24,7 @@ const SWITCHING_MS = 220
 
 export function AppShell() {
   useSidebarHotkey()
+  useContentSplitHotkey()
   /** 侧栏三态模式（zustand persist：完全显示/图标折叠/完全隐藏） */
   const sidebarMode = useUiStore((s) => s.sidebarMode)
   /** 写入侧栏模式 @param mode 目标模式 */
@@ -104,8 +107,10 @@ export function AppShell() {
           {sidebarMode === "hidden" && <SidebarPeek />}
 
           <SidebarInset className="min-h-0 overflow-hidden bg-transparent">
-            {/* 内容区不带内边距：页面自管布局（普通页 p-6，chat 页全高自滚动）；滚动与切页平移都在轨道槽内 */}
-            <PageTrack />
+            {/* 内容区分栏（页面轨道外层）：右栏/底栏只分配空间；滚动与切页平移仍只在轨道槽内 */}
+            <ContentLayout>
+              <PageTrack />
+            </ContentLayout>
           </SidebarInset>
         </div>
       </SidebarProvider>

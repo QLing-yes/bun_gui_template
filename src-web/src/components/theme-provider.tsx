@@ -2,6 +2,7 @@ import * as React from "react"
 
 import { STORAGE_KEYS, subscribeStorageKey, writeText } from "@/lib/storage"
 import { setWindowTheme } from "@/lib/tauri"
+import { cancelSystemTransitions, startThemeTransition } from "@/lib/theme-transition"
 
 export type Theme = "dark" | "light" | "system"
 type ResolvedTheme = "dark" | "light"
@@ -90,11 +91,16 @@ export function ThemeProvider({
   const systemTheme: ResolvedTheme = systemDark ? "dark" : "light"
   /** 当前生效主题：system 由系统偏好解析，其余即本值 */
   const resolvedTheme: ResolvedTheme = theme === "system" ? systemTheme : theme
+  /** 系统偏好最新目标值：事件回调里立即更新，避免过渡回调尚未提交时用旧 state 去重、把系统抖动漏掉 */
+  const systemTarget = React.useRef<ResolvedTheme>(systemTheme)
 
   const applyTheme = React.useCallback(
-    (nextTheme: Theme) => {
+    (nextTheme: Theme, resolvedOverride?: ResolvedTheme) => {
       const root = document.documentElement
-      const next = nextTheme === "system" ? getSystemTheme() : nextTheme
+      // system 档解析实时系统偏好；过渡回滚等场景可显式指定解析结果
+      const next =
+        resolvedOverride ??
+        (nextTheme === "system" ? getSystemTheme() : nextTheme)
       // VT 可用时切换被快照盖住，防 CSS 过渡注入毫无作用还产生 DOM 扰动；仅降级路径需要
       const restoreTransitions =
         disableTransitionOnChange && !("startViewTransition" in document)
@@ -131,19 +137,52 @@ export function ThemeProvider({
     [storageKey, applyTheme]
   )
 
-  // 挂载/主题变化时落 class，并始终订阅系统主题（媒体回调属事件驱动 setState）
+  // 档位变化时落 class（系统偏好变化不在这里重复落，交给下面的事件回调按动画链处理）
   React.useLayoutEffect(() => {
     applyTheme(theme)
+  }, [theme, applyTheme])
+
+  // 始终订阅系统主题：固定档只刷新系统偏好，跟随系统档复用同一套圆形揭示过渡
+  React.useLayoutEffect(() => {
     const mediaQuery = window.matchMedia(COLOR_SCHEME_QUERY)
     const handleChange = () => {
+      const next: ResolvedTheme = mediaQuery.matches ? "dark" : "light"
       if (import.meta.env.DEV) {
         console.debug("[theme] system-changed", {
           mode: theme,
-          dark: mediaQuery.matches,
+          from: systemTarget.current,
+          to: next,
         })
       }
-      setSystemDark(mediaQuery.matches)
-      applyTheme(theme)
+
+      // 固定档下系统变化不改视觉，只刷新系统偏好，供下一次切回「跟随系统」时解析
+      if (theme !== "system") {
+        systemTarget.current = next
+        setSystemDark(next === "dark")
+        if (import.meta.env.DEV) {
+          console.debug("[theme] system change skipped", { reason: "fixed-mode" })
+        }
+        return
+      }
+      if (next === systemTarget.current) return
+
+      // 跟随系统：复用手动切换的同一套圆形揭示过渡（系统变化没有点击点，取视口中心）
+      const previous = systemTarget.current
+      systemTarget.current = next
+      /** 落系统偏好的目标值（提交与回滚共用） @param target 目标明暗 */
+      const commitSystem = (target: ResolvedTheme) => {
+        systemTarget.current = target
+        setSystemDark(target === "dark")
+        applyTheme("system", target)
+      }
+      startThemeTransition({
+        priority: "system",
+        x: window.innerWidth / 2,
+        y: window.innerHeight / 2,
+        // 提交时读最新目标：极快抖动下前一条过渡的 apply 尚未执行，按最新值落可避免闪一帧中间色
+        apply: () => commitSystem(systemTarget.current),
+        rollback: () => commitSystem(previous),
+      })
     }
 
     mediaQuery.addEventListener("change", handleChange)
@@ -158,6 +197,8 @@ export function ThemeProvider({
     () =>
       subscribeStorageKey(storageKey, (next) => {
         if (!isTheme(next)) return
+        // 其它窗口的手动选择同样压过本窗口待播的系统抖动，避免系统过渡把远端选择覆盖
+        cancelSystemTransitions()
         setThemeState((current) => (next === current ? current : next))
       }),
     [storageKey]
