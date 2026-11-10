@@ -1,8 +1,9 @@
 mod commands;
 mod state;
-#[cfg(not(debug_assertions))]
+// 本地 bun 服务仅桌面 release 存在；Android/iOS 无本地服务、不打包 bun
+#[cfg(all(desktop, not(debug_assertions)))]
 mod sidecar;
-#[cfg(not(debug_assertions))]
+#[cfg(all(desktop, not(debug_assertions)))]
 mod sidecar_terminal_log;
 
 use state::{SidecarReady, SidecarToken};
@@ -20,14 +21,13 @@ pub(crate) fn present_window(window: &tauri::WebviewWindow) {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    // sidecar 访问令牌：release 随机生成 48 位，开发模式为空串（服务端随之跳过校验）
+    // 本地服务访问令牌：release 随机生成 48 位，开发模式为空串（服务端随之跳过校验；IPC 契约名沿用 sidecar_token）
     #[cfg(not(debug_assertions))]
     let token = Alphanumeric.sample_string(&mut rand::rng(), 48);
     #[cfg(debug_assertions)]
     let token = String::new();
 
     tauri::Builder::default()
-        .plugin(tauri_plugin_shell::init())
         // 恢复窗口大小/位置/最大化状态；排除 VISIBLE——显示时机由前端挂载后控制，避免白屏
         .plugin(
             tauri_plugin_window_state::Builder::new()
@@ -46,7 +46,7 @@ pub fn run() {
         .manage(SidecarToken(token))
         .manage(SidecarReady::default())
         .setup(|app| {
-            #[cfg(not(debug_assertions))]
+            #[cfg(all(desktop, not(debug_assertions)))]
             sidecar::spawn_bun_sidecar(app);
 
             // 启动不占屏：Windows 先最小化（任务栏就位、不上屏），web 就绪后经 reveal_window 还原聚焦；
@@ -117,6 +117,13 @@ pub fn run() {
             commands::reveal_window,
             commands::shell_platform
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|_app, _event| {
+            // 退出前通知本地 bun 服务自行关闭（令牌随请求头回传）；移动端无本地服务
+            #[cfg(all(desktop, not(debug_assertions)))]
+            if let tauri::RunEvent::Exit = _event {
+                sidecar::shutdown_bun_sidecar(_app);
+            }
+        });
 }

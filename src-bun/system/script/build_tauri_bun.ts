@@ -1,36 +1,25 @@
-import { $ } from "bun";
 import { join } from "node:path";
-import { build as bunBuild } from "./build.ts";
+import { aot } from "elysia/plugin/aot/bun";
+import { aotEntry, build as bunBuild, main } from "./build.ts";
 
-const build = (target: Bun.Build.CompileTarget, fileName?: string) => {
-    const outfile = join(process.cwd(), `../dist/${fileName || target}`);
-    return bunBuild({ compile: { target, outfile } });
-}
-
-// ── 构建 sidecar ─────────────────────────────────────────────
+// ── 构建本地服务（仅 JS 产物，不内嵌运行时，由宿主用 bun 命令启动） ──
 
 await (async function build_bun() {
-    // 获取 Rust 平台三元组 (Target Triple)
-    const rustcOutput = await $`rustc -vV`.text();
-    const hostMatch = rustcOutput.match(/host:\s*(.+)/);
-    if (!hostMatch) {
-        throw new Error("无法获取 Rust host target triple");
-    }
-    const rustTarget = hostMatch[1]!.trim();
+    const root = process.cwd();
 
-    // 将 Rust 三元组映射到 Bun 的编译目标
-    let bunTarget: Bun.Build.CompileTarget;
-    if (rustTarget.includes("windows")) {
-        bunTarget = rustTarget.includes("aarch64") ? "bun-windows-arm64" : "bun-windows-x64";
-    } else if (rustTarget.includes("darwin")) {
-        bunTarget = rustTarget.includes("aarch64") ? "bun-darwin-arm64" : "bun-darwin-x64";
-    } else if (rustTarget.includes("linux")) {
-        bunTarget = rustTarget.includes("aarch64") ? "bun-linux-arm64" : "bun-linux-x64";
-    } else {
-        throw new Error(`未知的平台: ${rustTarget}`);
-    }
-
-    const fileName = `bun-service-${rustTarget}`;
-
-    await build(bunTarget, fileName);
+    await bunBuild({
+        // 双入口：cluster 作为进程管理入口供宿主启动，index 作为 AOT 应用入口与集群 worker 目标
+        entrypoints: [main, aotEntry],
+        // 输出到主程序同级的 bun 子目录：JS 产物、.env、静态资源集中存放
+        outdir: join(root, "../dist/bun"),
+        // 开启代码分割：共享模块抽成 chunk，避免 cluster 与 index 各内联一份应用代码
+        splitting: true,
+        // 打包目标为 bun 运行时（使用 Bun/Node 内置模块）
+        target: "bun",
+        // JS 包保留了运行时 JIT：AOT 自动 strip 会漏掉运行时才注册的路由（如 OPTIONS），必须显式关闭
+        plugins: [aot(aotEntry, { strip: false })],
+        // 不编译运行时、不生成字节码：运行依赖目标机安装的 bun
+        compile: false,
+        bytecode: false,
+    });
 })();

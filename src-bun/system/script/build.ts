@@ -7,7 +7,7 @@ const root = process.cwd();
 /** 应用入口文件绝对路径 */
 export const main = join(root, "./app/cluster.ts");
 /** AOT 预编译指向文件绝对路径 */
-const aotEntry = join(root, "./app/index.ts");
+export const aotEntry = join(root, "./app/index.ts");
 
 /**
  * @param config - Bun的构建配置

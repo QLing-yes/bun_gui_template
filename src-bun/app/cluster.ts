@@ -1,7 +1,10 @@
 import { spawn } from "bun";
 import os from "node:os";
+import { sidecarEnv, watchParentExit } from "./common/tauri_sidecar";
 
 const port = process.env.PORT;
+/** worker 入口与当前文件同目录：源码运行为 index.ts，打包产物为 index.js */
+const workerEntry = `${import.meta.dir}/index${import.meta.path.endsWith(".ts") ? ".ts" : ".js"}`;
 
 if (!port) {
   console.error("[cluster] Missing environment variable PORT, shutting down...");
@@ -37,7 +40,10 @@ if (!port) {
 
   const startWorker = (index: number) => {
     const worker = spawn({
-      cmd: ["bun", `${import.meta.dir}/index.ts`],
+      // 复用当前运行时：随包 bun 启动时 execPath 即包内 bun，dev 下即系统 bun，均不依赖 PATH
+      cmd: [process.execPath, workerEntry],
+      // worker 的探活对象是本进程：凭证里的 pid 改为集群父进程，宿主退出后 worker 仍能跟着收尾
+      env: { ...process.env, ...sidecarEnv() },
       stdout: "inherit",
       stderr: "inherit",
       stdin: "inherit"
@@ -71,7 +77,20 @@ if (!port) {
     process.exitCode = 0;
   };
 
-  process.on("SIGINT", () => shutdown("SIGINT"));
-  process.on("SIGTERM", () => shutdown("SIGTERM"));
+  // 收到终止信号：杀掉 worker 后必须显式退出——桌面模式下 stdin 监听会让事件循环常驻
+  const stop = (signal: string) => {
+    shutdown(signal);
+    process.exit(0);
+  };
+
+  process.on("SIGINT", () => stop("SIGINT"));
+  process.on("SIGTERM", () => stop("SIGTERM"));
   process.on("exit", () => shutdown("exit"));
+
+  // 桌面本地服务模式：宿主退出后本进程收不到信号，主动停掉 worker 避免留下孤儿进程
+  watchParentExit(() => {
+    shutdown("parent exited");
+    // stdin 监听会让事件循环常驻，收尾后必须显式退出
+    process.exit(0);
+  });
 })();

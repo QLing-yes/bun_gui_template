@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "bun run ./scripts/dev.ts",
     "build": "bun run ./scripts/build.ts",
+    "build:android": "bun run ./scripts/build.ts android",
+    "build:ios": "bun run ./scripts/build.ts ios",
     "check:ipc": "bun run ./scripts/check_ipc.ts"
   },
   "workspaces": [
@@ -19,8 +21,7 @@
     "sharp": "^0.35.5"
   },
   "dependencies": {
-    "@tauri-apps/api": "^2.12.4",
-    "@tauri-apps/plugin-shell": "~2"
+    "@tauri-apps/api": "^2.12.4"
   },
   "peerDependencies": {
     "typescript": "^7"

@@ -2,8 +2,6 @@ import { mergeDeep } from "../src-bun/app/utils";
 import { writeIfChanged } from "../src-bun/app/utils/file";
 import path from "node:path";
 
-const isProd = process.env.NODE_ENV === "production";
-
 async function build_tauri_conf() {
     console.log("\n\x1b[33m🔄 [tauri.conf.json] 编译中...\x1b[0m\n");
     const filePath = path.join(__dirname, "../src-tauri/tauri.conf.json");
@@ -13,13 +11,6 @@ async function build_tauri_conf() {
         "build": {
             "devUrl": `http://localhost:${process.env.VITE_PORT}`,
         },
-        "bundle": {
-            // sidecar 二进制仅打包时需要；开发模式由 bun 直接启动服务，不注入
-            // 路径必须指向 src-bun 构建脚本的实际产物目录（dist/bun-service-<triple>.exe）
-            "externalBin": isProd ? [
-                "../dist/bun-service"
-            ] : []
-        }
     }
 
     const merged = mergeDeep(tauri_json, config);

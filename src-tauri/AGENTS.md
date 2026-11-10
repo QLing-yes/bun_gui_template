@@ -5,12 +5,11 @@
 - capabilities 白名单最小化：只开前端用到的 `core:window:allow-*`；新增窗口能力必须同步 `capabilities/default.json`，否则 IPC 静默失败。
 - 不做系统窗口材质：`windowEffects` / `set_effects` 已评估并撤销（系统材质会连带带来 DWM 投影与 1px 框线，公开 API 关不掉；失焦时材质还被压成灰平），磨砂全部由 src-web 的 CSS 出。别在这里重新加 effects 命令或 conf 配置。
 - 出场流程：setup 里 `minimize()`（任务栏就位、不上屏；conf 的 `visible:false` 仍保留，避免创建瞬间闪一下），等前端 `reveal_window` 交出就绪信号后由 `commands::present_window` 做 unminimize+show+set_focus；5s 兜底线程判据是「未显示或仍最小化」，二次启动复用同一 helper。本模块不假设前端何时加载完，也不给 show 开 `core:window:allow-show` 权限。
-- sidecar 生命周期：仅 release 构建启动 `bun-service`（`app.shell().sidecar`，构建脚本产出 `dist/bun-service-<triple>.exe`，Tauri 依 externalBin 复制为 `target/release/bun-service.exe`；config 源文件 externalBin 留空，由 scripts 按 NODE_ENV 注入）；dev 模式服务由 bun 直接启动，本模块不拉进程。
-- release 打包自检：`build.rs` 在 `PROFILE=release`（cargo build script 变量，非 webpack 的 RELEASE）时断言 tauri.conf.json 的 externalBin 含 `bun-service`，缺失即中断构建（防止绕过 scripts 直接 `tauri build` 出无本地服务的坏包）。
-- sidecar 意外退出：监控任务 `emit("sidecar-terminated", code)` 通知前端（`lib/tauri.onSidecarTerminated`），本模块只发事件，UI 反馈归 src-web。
-- 令牌边界：本模块负责生成一次性随机 `SidecarToken`、经 `TAURI_SIDECAR` 环境变量注入，并在**进程确认起来后置位 `SidecarReady`**；`sidecar_token` 仅在就绪时返回令牌，进程退出即清零（前端「非空=可用」的判据由本模块保证）。HTTP 校验完全归 src-bun，窗口逻辑不得牵扯鉴权实现。
+- 本地 bun 服务（非 Tauri sidecar、不内嵌运行时）：**仅桌面 release**（`cfg(all(desktop, not(debug_assertions)))`；Android/iOS 不编 `sidecar`/`sidecar_terminal_log`，也不带 `ureq`/`dotenvy`/`chrono` 依赖）用 `std::process::Command` 跑主程序同级 `bun/cluster.js`（进程管理入口，同目录 `index.js` 由它按需拉起；服务目录含 `.env`、`public/`、chunk），CWD 设为 `bun`、Windows 加 `CREATE_NO_WINDOW`；启动失败仅告警不中断。**运行时优先用构建期复制进来的 `bun/bun(.exe)`（`scripts/build.ts` 从构建机 `process.execPath` 拷入），缺失才回落 PATH 里的 `bun`；集群 worker 统一用 `process.execPath` 启动，同样不依赖 PATH**。移动端/服务版/web 版不经过本模块（无本地服务，bun 由部署方启动）。构建脚本产出纯 JS 产物树（入口 `cluster.js` / `index.js` + 代码分割 chunk + linked map，不编译运行时），dev 模式服务由 bun 直接启动，本模块不拉进程。
+- 本地服务意外退出：监控线程 `emit("sidecar-terminated", code)` 通知前端（`lib/tauri.onSidecarTerminated`），本模块只发事件，UI 反馈归 src-web。
+- 令牌边界：本模块负责生成一次性随机 `SidecarToken`，**启动时经 `TAURI_SIDECAR` 环境变量注入 `{"token","pid"}` JSON、退出时经 `/offline/exit` 的 `x-tauri-token` 头回传**；其中 `pid` 是本进程号，供服务侧探活（集群 worker 由 cluster 改写为集群父进程号）。进程确认起来后置位 `SidecarReady`，`sidecar_token` 仅在就绪时返回令牌，进程退出即清零（前端「非空=可用」的判据由本模块保证）。HTTP 校验完全归 src-bun，窗口逻辑不得牵扯鉴权实现。
 - devtools：靠 cargo feature `devtools` 开关（`cfg(debug_assertions)` 不能用于选依赖，写了 cargo 会告警并失效）。dev 由 `scripts/dev.ts` 传 `--features devtools`，release 不带。
 - IPC 契约：命令与事件名必须与 `src-web/src/lib/tauri` 的 `IPC`/`IPC_EVENT` 常量表一致，`bun run check:ipc`（已前置进 `scripts/build.ts`）负责校验；新增/改名命令一律走该表。
-- sidecar 进程与 stdin 管道需随任务持有，Tauri 退出前不得关闭；进程侧联动退出（watchParentExit）归 src-bun。
-- release 下 sidecar 原始输出追加到 exe 同级 `logs/sidecar_terminal_bun/年-月-日.log`；目录无法解析时静默跳过，不阻断启动。
+- 退出流程：`RunEvent::Exit` 时向 `/offline/exit` 发一次性退出通知（端口取自 `PORT` 环境或 exe 同级 `.env`）；stdin 管道随监控线程持有，Tauri 进程结束时写端关闭，服务侧 `watchParentExit` 兜底，不依赖杀进程。
+- 本地服务终端日志：stdout/stderr 走管道，由 `sidecar.rs` 的 `pump_output` 逐行交给 `sidecar_terminal_log.rs`，按本地日期追加到 `bun/logs/bun_terminal/年-月-日.log`；启动失败、入口缺失、异常退出等生命周期事件写同一份日志（GUI 无控制台，这是唯一排障入口）。服务自身的业务日志仍归 src-bun 的 `bun/logs/`。
 - 贴靠布局浮层：web 自绘最大化按钮在稳定版 WebView2 无 HTMAXBUTTON 申报通道（app-region 转发由 Chromium 子窗口与 DWM 直接协作，不经宿主 WndProc；window-drag-button CSS 属 WCO 场景）；待 WebView2 WCO API 转正后再接入，方案与试验记录见记忆/git 历史。

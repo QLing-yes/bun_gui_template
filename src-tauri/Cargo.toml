@@ -4,24 +4,28 @@ version = "0.1.0"
 description = "A Tauri App"
 edition = "2024"
 
-# 桌面应用仅需 rlib；staticlib/cdylib 供移动端使用
+# rlib 供桌面二进制复用；移动端必须产出 staticlib（iOS）/ cdylib（Android）
 [lib]
 name = "aigc_lib"
-crate-type = ["rlib"]
+crate-type = ["rlib", "staticlib", "cdylib"]
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
-serde_json = "1"
 
 [dependencies]
 tauri = { version = "2", features = [] }
-tauri-plugin-shell = "2"
 rand = "0.9"
-chrono = { version = "0.4", default-features = false, features = ["clock"] }
-tokio = { version = "1", features = ["fs"] }
 tauri-plugin-window-state = "2.5.0"
 tauri-plugin-single-instance = "2.5.5"
-serde = { version = "1", features = ["derive"] }
+
+# 本地 bun 服务仅桌面端存在（移动端无本地服务、不打包 bun），相关依赖不参与移动端编译
+[target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
+# 退出通知本地 bun 服务（仅本机 http，无 TLS 需求）
+ureq = { version = "2", default-features = false }
+# 读取服务目录 .env 的 PORT，与 bun 运行时共用同一份配置
+dotenvy = "0.15"
+# 终端日志文件名按本地日期分天
+chrono = "0.4"
 
 # devtools 只能按 cargo feature 开关（cfg(debug_assertions) 不能用于选择依赖，cargo 会告警并失效）
 # dev 由 scripts/dev.ts 传 `--features devtools`，release 不带 → 包体不含 DevTools

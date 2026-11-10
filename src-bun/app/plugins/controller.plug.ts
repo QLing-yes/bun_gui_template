@@ -26,13 +26,13 @@ export default new Elysia({ name: String($g.counter.n) })
     );
     logger.info(`[request] ${p.request.method} ${p.route || p.path}`, mate);
   })
-  /** 形态门控：/offline 属本机 sidecar 专属能力，服务器实例（无令牌）访问一律 404 */
+  /** 形态门控：/offline 属本机桌面服务专属能力，服务器实例（无令牌）访问一律 404 */
   .onBeforeHandle(({ set, path }) => {
     if (tauri_config.token || !path.startsWith("/offline")) return;
     set.status = 404;
     return $c.error("Not Found");
   })
-  /** sidecar 模式校验访问令牌，拦截本机其他进程；开发模式（无令牌）全放行 */
+  /** 桌面本地服务模式校验访问令牌（含宿主启动/退出通知），拦截本机其他进程；开发模式（无令牌）全放行 */
   .onBeforeHandle(({ request, set, path }) => {
     if (!tauri_config.token) return;
     if (request.headers.get("x-tauri-token") === tauri_config.token) return;

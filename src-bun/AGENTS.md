@@ -11,11 +11,11 @@
 - 构建脚本(Bun): `Bun.build({ entrypoints, outdir: 'dist', target: 'bun', plugins: [aot(entry, { target: 'bun' })] })`, 末尾必须 `process.exit(0)`(dry-run 已启动过服务); 运行 `bun dist/index.js`。`target` 必须与真实运行时一致(bun / node / workerd)。
 
 ### 本项目注意事项
-1. 入口约定: AOT 编译"主 app"优先取 `app` 导出, 其次 `default` 导出, 再次入口唯一实例。本项目 `app/index.ts` 已 `export const app`; `app/cluster.ts` 只做进程管理(spawn `app/index.ts`), 不导出实例, 因此不能作为 AOT 构建入口, 构建统一以 `app/index.ts` 为 entry。
+1. 入口约定: AOT 编译"主 app"优先取 `app` 导出, 其次 `default` 导出, 再次入口唯一实例。本项目 `app/index.ts` 已 `export const app`; `app/cluster.ts` 只做进程管理、不导出实例, 因此 **AOT 指向** 恒为 `app/index.ts`, 打包 entrypoints 为双入口 `[cluster.ts, index.ts]`(产物 cluster.js 供宿主启动, index.js 为 worker/AOT 入口)。
 2. 构建期会真实执行入口(dry-run): 数据库/Redis 连接、定时器、顶层 await、日志初始化都会在构建机跑一遍。外部服务初始化必须包在 `if (!inAotBuild()) { ... }`(`import { inAotBuild } from "elysia"`)。本项目 `app/common/init-global.ts` 经 `app/common/index.ts` 静态引入 drizzle/redis, 必须确认构建期不建连(惰性连接)。
 3. 实例 name 必须静态、唯一, 且构建期与运行期取值完全一致: 禁止由环境变量或运行时计算派生。本项目插件/generated 路由用 `String($g.counter.n)`(全局自增计数器), 依赖模块加载顺序, 顺序一旦变化 manifest 键就对不上, 运行期报 `has no AOT manifest` 或 `Mismatch fingerprint`。应改为显式常量名(如 `"controller"`、`"schemas"`、`"plugins"`、`"routes:test/testsub"`)。多 app 场景主 app 也必须命名, 且所有 name 互不重复。
 4. 只有自己起服务的实例才需要从入口命名导出: 凡是调用 `.listen()`/`.handle()`/`.compile()`、读 `.fetch`、或 `.mount(x.fetch)`/`.mount(x.handle)` 的实例, 否则构建成功但运行期抛 `[elysia-aot] App "<name>" has no AOT manifest. Name and export it, .mount() ones too`。仅 `.use()` 组合的插件、以及 `.mount(普通函数)`(如 `auth.handler`)不需要导出。
-5. cluster 与产物路径: `app/cluster.ts` 中 `spawn(["bun", `${import.meta.dir}/index.ts`])` 指向源码, AOT 后必须改指向 dist 产物(或把 cluster 一并打包), 否则 worker 跑的是未编译源码, AOT 完全失效。
+5. cluster worker 入口随产物切换: `app/cluster.ts` 用 `workerEntry = index + (import.meta.path 以 .ts 结尾 ? ".ts" : ".js")` 拼同目录路径，源码运行派 index.ts、打包产物派 index.js；worker 用 `process.execPath` 启动(随包 bun 即包内运行时、dev 即系统 bun)，**禁止写死 `bun` 或 `${import.meta.dir}/index.ts`**(dist 里不存在，且 PATH 未必有 bun)。
 6. 环境变量: `ELYSIA_AOT_BUILD` 由构建插件设置, 运行环境残留会抛 `Elysia AOT capture module is not activated.`, 部署前清理。
 7. manifest 带 ABI 指纹: elysia 版本变更后必须重新构建, 不可复用旧 dist(否则 `Mismatch fingerprint`)。
 8. `precompile: true` 是运行期选项: AOT 下命中 manifest 时复用已编译程序, 保留不冲突; 其实际收益需以启动/首请求实测为准。

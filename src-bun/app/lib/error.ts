@@ -44,7 +44,9 @@ process.on("beforeExit", (code) => {
  * 只能同步操作，异步操作不会被执行
  */
 process.on("exit", (code) => {
-  logger.error("exit", { code });
+  // 正常退出（0）按 info 记录，异常退出才升级为 error
+  if (code === 0) logger.info("exit", { code });
+  else logger.error("exit", { code });
 });
 
 /**

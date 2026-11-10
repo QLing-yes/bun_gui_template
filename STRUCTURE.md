@@ -8,7 +8,7 @@
 ```
 bun_gui_template/
 ├── scripts/          # 根编排脚本（dev/build/tauri 配置注入）
-├── src-bun/          # Bun + Elysia 后端（sidecar 与服务器部署两形态）
+├── src-bun/          # Bun + Elysia 后端（桌面本地服务与服务器部署两形态）
 ├── src-web/          # React + Vite 前端（web 与桌面 WebView 共用）
 ├── src-tauri/        # Tauri v2 桌面壳（Rust）
 ├── .agents/skills/   # Agent 技能（shadcn 等，CLI 维护）
@@ -27,8 +27,8 @@ bun_gui_template/
 ## scripts/
 
 - `dev.ts` — 并行拉起各模块 dev 进程；启动时固定 process.env 传子进程；tauri dev 带 `--features devtools`
-- `build.ts` — 生产构建编排（先 `check_ipc` 闸门，再 config → web/bun 并行 → tauri → dist）
-- `config.ts` — 向 tauri.conf.json 注入 devUrl / externalBin（NODE_ENV=production 才注 sidecar；内容未变不落盘，避免 tracked 文件恒脏）
+- `build.ts` — 生产构建编排，首个参数选择目标：缺省桌面（`check_ipc` → config → web/bun 并行 → `tauri build --no-bundle` → dist），`android`/`ios` 为移动端（`check_ipc` → web → `tauri android|ios build`，不含 bun、不产 dist）；dist 阶段除拷主程序与 `.env`，还把构建机 `process.execPath`（即当前 bun）复制为 `dist/bun/bun(.exe)`（POSIX 补可执行位），供产物直接启动服务
+- `config.ts` — 向 tauri.conf.json 注入 devUrl（内容未变不落盘，避免 tracked 文件恒脏）
 - `check_ipc.ts` — IPC 契约漂移检查：Rust `#[tauri::command]`/`generate_handler!`/`emit` 与 src-web `IPC`·`IPC_EVENT` 常量表逐条比对，漂移即退出非零
 - `spawn.ts` — 子进程启动公共封装
 - `round_icons.ts` — 全端图标圆角后处理（bun + sharp + png-to-ico，去 Python 依赖）：`tauri icon` 重生成后运行，半径=尺寸×7/32；矢量掩膜 dest-in 抗锯齿、重跑幂等；覆盖主图/桌面族/ico（png-to-ico）/icns（无在更 npm 包，按 Apple 规格手写容器）/android/ios/web icon
@@ -127,30 +127,30 @@ lib/：
 - `theme-transition.ts` — 主题切换事务 `startThemeTransition({apply, rollback, x, y, priority?})`：手动选择与系统明暗变化共用这一条圆形揭示链路，写 --vt-* 触发过渡，回调内只同步落 html class（新快照随后捕获）；优先级 user > system，同一时刻最多一条 VT，播放中到达的请求排队（手动后到覆盖先到、系统抖动只留最后一次）；`cancelSystemTransitions()` 供用户手动选择作废待播系统过渡；`onThemeTransitionStart(listener)` 在快照捕获前同步通知其它动效收敛、`isThemeTransitioning()` 供启动新过渡前自查；reduced-motion / 窗口隐藏 / 无 VT / `startViewTransition` 抛错一律直接切换（DEV 记跳过原因），提交半途抛错即回滚，`ready`/`finished` 的 reject 一律接住。反馈分层归调用方：按钮先切，事务延后一个任务
 - `access.ts` — 权限判定单源（占位实现）：`RouteAccess{permission,label,demo?}` 挂在路由 `handle.access`；`permissionsOf(username)`/`currentPermissions()` 按登录用户名查 `PLACEHOLDER_GRANTS`（占位来源，未登录用 guest，`"*"` 全放行），`canAccessWith(access, owned)` 纯判定、`useAccess()` 响应式入口；未声明权限的路由默认放行，菜单可用性与页面准入共用这一份判定，正式接入角色体系时只替换 `permissionsOf()`
 
-## src-bun/（Bun + Elysia；桌面 sidecar / 服务器部署两形态，靠令牌区分）
+## src-bun/（Bun + Elysia；桌面本地服务 / 服务器部署两形态，靠令牌区分）
 
-- `app/index.ts` — 应用组装入口；`app/cluster.ts` — 多进程封装
-- `app/common/` — `index.ts`（`$g` 聚合导出：db/logger/redis/res/ctrl/success/error/counter，生成的 routes.ts 以此消费）、`tauri_sidecar.ts`（sidecar 令牌配置，token 非空=本地模式）、schemas/schemaDerive/init-global
-- `app/controller/api/` — 公共路由 `/api/**`（chat 流式对话、title AI 命名——同一 env 模型配置；`withProject=true`（新建项目）一次返回项目名+对话名两个字段，否则只返回对话名；JSON 宽容解析、坏值降级同值双名，test、嵌套示例 testsub）；`app/controller/offline/` — 桌面专属 `/offline/**`（服务器形态按令牌一律 404，门控在 `app/plugins/controller.plug.ts`）
+- `app/index.ts` — 应用组装入口（AOT 指向）；`app/cluster.ts` — 进程管理入口（宿主启动它，集群 worker 跑同目录 `index.js`）
+- `app/common/` — `index.ts`（`$g` 聚合导出：db/logger/redis/res/ctrl/success/error/counter，生成的 routes.ts 以此消费）、`tauri_sidecar.ts`（桌面令牌/宿主 PID 配置，token 非空=本地模式）、schemas/schemaDerive/init-global
+- `app/controller/api/` — 公共路由 `/api/**`（chat 流式对话、title AI 命名——同一 env 模型配置；`withProject=true`（新建项目）一次返回项目名+对话名两个字段，否则只返回对话名；JSON 宽容解析、坏值降级同值双名，test、嵌套示例 testsub）；`app/controller/offline/` — 桌面专属 `/offline/**`（服务器形态按令牌一律 404，门控在 `app/plugins/controller.plug.ts`；`exit` 供宿主退出时通知停服并退出（与父进程消失共用 `exitApp`，只执行一次））
 - `app/lib/` — drizzle / redis / logger / error；`app/model/` — 数据表 mold（user/post/relations）+ `index.ts` 聚合导出
 - `app/plugins/` — 控制器注册 / macro / schema 插件；`app/utils/` — file / watch / menu-ui 通用工具 + `index.ts` 聚合导出
-- `system/script/` — `index.ts`（dev 生成入口：串起 routes/batchExport/genApiTypes，并指定 gen-api 输出到 src-web）/ build / build_tauri_bun（产出 sidecar 二进制）/ genApiTypes（产出声明式 API 类型树）/ routes（顶层路由前缀全部组合导出，漏导出=该前缀不可达）/ menu / batchExport；`system/types/global.d.ts` — `$g` 全局声明（genApiTypes 显式纳入）；`system/generated/` — 派生产物（勿手改）
+- `system/script/` — `index.ts`（dev 生成入口：串起 routes/batchExport/genApiTypes，并指定 gen-api 输出到 src-web）/ build / build_tauri_bun（产出本地服务 JS 产物，不内嵌运行时）/ genApiTypes（产出声明式 API 类型树）/ routes（顶层路由前缀全部组合导出，漏导出=该前缀不可达）/ menu / batchExport；`system/types/global.d.ts` — `$g` 全局声明（genApiTypes 显式纳入）；`system/generated/` — 派生产物（勿手改）
 - `public/` — 服务静态资源；`logs/` — 运行日志
-- 产物 `dist/bun-service-<target>.exe|.map` — tauri sidecar 二进制（externalBin 指向 `../dist/bun-service`，Tauri 再复制为 `target/release/bun-service.exe`）
+- 产物树 `dist/`：主程序 `aigc.exe` 在根，服务相关全部在 `bun/` —— 入口 `cluster.js`（宿主启动的进程管理入口）+ `index.js`（AOT 应用入口 / 集群 worker 入口）+ `chunk-*.js`（代码分割共享块）+ `.env` + `public/` + 随包运行时 `bun.exe`/`bun`（构建期从构建机复制，运行期优先使用、缺失才回落 PATH），入口各带 linked `.map`；纯 JS 打包不编译运行时，由 Rust 以该目录为 CWD 启动
 
 ## src-tauri/（Tauri v2，Rust 桌面壳）
 
-- `tauri.conf.json` — 窗口（无装饰/透明/无 OS 阴影与边框/最小 375×667）/ devUrl / bundle（externalBin 由 scripts 注入，源文件留空）
-- `build.rs` — tauri_build + release 下 externalBin 自检（缺 sidecar 配置即中断构建）+ `rerun-if-changed=icons/icon.ico`（图标编译期嵌 exe，tauri-build 不 watch 图标，补 watch 后改图标即重嵌）
-- `Cargo.toml` — `[features] devtools`（dev 由 scripts 传 `--features`，release 不含 DevTools；cfg(debug_assertions) 不能用于选依赖）；windows/webview2-com 仅 Windows target；panic=abort
+- `tauri.conf.json` — 窗口（无装饰/透明/无 OS 阴影与边框/最小 375×667）/ devUrl / bundle（不含 externalBin）
+- `build.rs` — tauri_build + `rerun-if-changed=icons/icon.ico`（图标编译期嵌 exe，tauri-build 不 watch 图标，补 watch 后改图标即重嵌）
+- `Cargo.toml` — `[features] devtools`（dev 由 scripts 传 `--features`，release 不含 DevTools；cfg(debug_assertions) 不能用于选依赖）；`[lib] crate-type = ["rlib","staticlib","cdylib"]`（桌面 rlib、iOS staticlib、Android cdylib）；windows/webview2-com 仅 Windows target；ureq/dotenvy/chrono 仅在非 Android/iOS target 编译（本机退出通知、端口读取、终端日志分天；移动端无本地服务）；panic=abort
 - `capabilities/default.json` — 窗口权限白名单（minimize/toggle-maximize/close/start-dragging/set-always-on-top/set-theme；show 已由 Rust 侧 reveal_window 承担，不再开权限）
 - `app-icon.png` + `icons/` — 全端图标（app-icon.png 为源图、自身已带 7/32 等比圆角，改动后 `bunx tauri icon app-icon.png` 重生成再跑 `python scripts/round_icons.py`；全平台 PNG/ico/icns 均圆角透明角；android 自适应图标最终形状仍归系统遮罩（前景圆角+背景透明），ios 为预圆角（上架 App Store 需按苹果规范换回全幅方形））
 - `src/`：
   - `main.rs` — 入口（release 无控制台）
-  - `lib.rs` — Builder：插件（shell/window-state/single-instance）+ setup（release 拉 sidecar、WebView2 非客户端区转发、5s 强显兜底）+ 命令注册
-  - `commands.rs` — IPC：`sidecar_token`（未就绪返回空串）/ `reveal_window`（就绪信号，动作在 lib.rs `present_window`）/ `shell_platform`（Rust cfg 平台标识）
-  - `sidecar.rs` — bun-service 生命周期：注入令牌、置位/清零 SidecarReady、日志转发、意外退出 emit `sidecar-terminated`
-  - `sidecar_terminal_log.rs` — release 终端日志文件（exe 同级 logs/sidecar_terminal_bun/）
+  - `lib.rs` — Builder：插件（window-state/single-instance）+ setup（桌面 release 拉起本地 bun 服务、WebView2 非客户端区转发、5s 强显兜底）+ 命令注册 + `RunEvent::Exit` 退出通知（以上两处均 `cfg(desktop)`，移动端不编译）
+  - `commands.rs` — IPC：`sidecar_token`（未就绪返回空串，移动端恒为空）/ `reveal_window`（就绪信号，动作在 lib.rs `present_window`）/ `shell_platform`（Rust cfg 平台标识）
+  - `sidecar.rs` — 本地 bun 服务生命周期（仅桌面 release）：随包 `bun bun/cluster.js` 命令启动（CWD 为 bun 子目录）、注入令牌与宿主 pid、stdout/stderr 逐行写终端日志、置位/清零 SidecarReady、退出调 `/offline/exit`、意外退出 emit `sidecar-terminated`
+  - `sidecar_terminal_log.rs` — 终端日志写入器（仅桌面 release）：按本地日期追加 `bun/logs/bun_terminal/年-月-日.log`，跨天自动切文件，写入失败仅提示一次
   - `state.rs` — 托管状态：SidecarToken / SidecarReady（进程起来且未退出才为真）；Rust 不持有圆角状态，四角真值在 src-web `store/ui.ts`
 
 ## 跨模块契约速查（改动时任一端必查另一端）
@@ -159,9 +159,10 @@ lib/：
 |---|---|
 | invoke：`sidecar_token` `reveal_window` `shell_platform` | src-tauri/commands.rs ↔ src-web/lib/tauri（`IPC` 表；`bun run check:ipc` 校验） |
 | 事件：`sidecar-terminated` | src-tauri emit ↔ src-web listen（`IPC_EVENT` 表；同上校验） |
-| env：`TAURI_SIDECAR={"token":...}` | src-tauri/sidecar.rs ↔ src-bun/common/tauri_sidecar.ts |
+| env：`TAURI_SIDECAR={"token":...,"pid":...}`（启动，pid 供探活） | src-tauri/sidecar.rs ↔ src-bun/common/tauri_sidecar.ts |
+| 退出：`POST /offline/exit` + `x-tauri-token` 头 | src-tauri/sidecar.rs（RunEvent::Exit） ↔ src-bun/controller/offline/exit.ctrl.ts |
 | 应用标识与名字 | tauri.conf.json `productName`/`identifier`（AIGC / com.aigc）＝窗口标题、可执行文件名与数据目录（`%APPDATA%\com.aigc`、WebView2 profile）；web 侧另有 `index.html <title>` 与 `brand-logo.tsx` 的 `BRAND_NAME`；改标识=换数据目录，旧数据不迁移 |
-| 令牌语义：非空=sidecar 进程已起来且未退出 | src-tauri/SidecarReady ↔ src-web/lib/backend（请求头）↔ src-bun/controller.plug（校验/门控） |
+| 令牌语义：非空=本地服务进程已起来且未退出 | src-tauri/SidecarReady ↔ src-web/lib/backend（请求头）↔ src-bun/controller.plug（校验/门控） |
 | HTTP：`/api/**` `/offline/**` | src-bun 控制器（offline 按令牌 404） ↔ src-web/lib/backend（apiUrl+authHeaders） |
 | 侧栏宽度通道 `--sidebar-width` | src-web/lib/sidebar-channel.ts 单点发布（文档根）→ 侧栏/画布/悬浮侧栏/index.scss 兜底 |
 | 内容面偏移 | src-web/components/layout/page-canvas.tsx 的 `surfaceLeft(mode, desktop)` |
@@ -172,7 +173,7 @@ lib/：
 | 出场时机（启动最小化 → 首屏还原聚焦） | src-tauri/lib.rs setup + `commands::present_window` ↔ src-web/components/layout/window-bootstrap.tsx |
 | 系统材质（已撤销） | 不用 `windowEffects`/`set_effects`：材质连带 DWM 投影与 1px 框线且关不掉；磨砂一律 src-web CSS（见「个性化旋钮」契约行） |
 | 移动断点 768 | src-web/hooks/use-mobile.ts ↔ index.scss `--breakpoint-md`/媒体查询（壳最小 375×667 见根 AGENTS） |
-| devUrl / externalBin | scripts/config.ts ↔ src-tauri/tauri.conf.json |
+| devUrl | scripts/config.ts ↔ src-tauri/tauri.conf.json |
 | 快捷键清单 | src-web/shortcuts/registry.ts（键位/展示/安装唯一来源，新增必须登记） |
 
 ## 维护规范
