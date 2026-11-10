@@ -15,8 +15,9 @@ async function build_tauri_conf() {
         },
         "bundle": {
             // sidecar 二进制仅打包时需要；开发模式由 bun 直接启动服务，不注入
+            // 路径必须指向 src-bun 构建脚本的实际产物目录（dist/bun-service-<triple>.exe）
             "externalBin": isProd ? [
-                "../src-bun/bun-service"
+                "../dist/bun-service"
             ] : []
         }
     }

@@ -1,5 +1,13 @@
 import { $ } from "bun";
-import { build } from "./build.ts";
+import { join } from "node:path";
+import { build as bunBuild } from "./build.ts";
+
+const build = (target: Bun.Build.CompileTarget, fileName?: string) => {
+    const outfile = join(process.cwd(), `../dist/${fileName || target}`);
+    return bunBuild({ compile: { target, outfile } });
+}
+
+// ── 构建 sidecar ─────────────────────────────────────────────
 
 await (async function build_bun() {
     // 获取 Rust 平台三元组 (Target Triple)
@@ -24,5 +32,5 @@ await (async function build_bun() {
 
     const fileName = `bun-service-${rustTarget}`;
 
-    await build(bunTarget, undefined, fileName);
+    await build(bunTarget, fileName);
 })();

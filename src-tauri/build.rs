@@ -14,7 +14,7 @@ fn check_sidecar_configured() {
         .is_some_and(|bins| bins.iter().any(|b| b.as_str().is_some_and(|s| s.contains("bun-service"))));
     assert!(
         sidecar,
-        "release 构建缺少 sidecar externalBin：请先执行 scripts 配置（externalBin=../src-bun/bun-service）或手动写入 tauri.conf.json"
+        "release 构建缺少 sidecar externalBin：请先执行 scripts 配置（externalBin=../dist/bun-service）或手动写入 tauri.conf.json"
     );
 }
 

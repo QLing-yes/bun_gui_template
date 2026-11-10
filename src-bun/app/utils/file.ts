@@ -94,3 +94,67 @@ export function filePathTree(suffix: string[], pattern: string | string[]) {
 
   return { list: FilePathList, tree: FilePathTree };
 }
+
+/** 按 glob 匹配路径
+ * @param pattern glob 匹配模式
+ * @param exclude glob 排除模式，命中任一即排除，默认不排除
+ */
+export function globTree(pattern: string | string[], exclude: string[] = []) {
+  const list = fs.globSync(pattern, { exclude });
+  const tree: Record<string, number[]> = {};
+  list.forEach((uri, i) => (tree[path.dirname(uri)] ??= []).push(i));
+  return {
+    /** 全部匹配路径 */
+    list,
+    /** 按目录分组 → list的下标 */
+    tree
+  };
+}
+
+/** 按 glob 异步复制文件到目标位置（node fs.cp，自动建父级）
+ * @param op 配置
+ * @returns 已复制的目标路径列表
+ */
+export async function copyTo(op: {
+  /** 目标目录 */
+  target: string;
+  /** glob 匹配模式 */
+  pattern: string | string[];
+  /** glob 排除模式 */
+  exclude?: string[];
+  /** 是否创建命中的空目录，默认 true（仅 preserveDir 为 true 时生效） */
+  copyEmptyDir?: boolean;
+  /** 是否保持相对目录结构，默认 true */
+  preserveDir?: boolean;
+}): Promise<string[]> {
+  const { target, pattern, exclude = [], preserveDir = true } = op;
+  // 平铺模式没有目录可建，强制不建目录项
+  const copyEmptyDir = preserveDir && (op.copyEmptyDir ?? true);
+  const root = process.cwd();
+
+  const destList = await Promise.all(
+    // withFileTypes 直接拿 Dirent，省掉每个匹配项一次 stat
+    fs.globSync(pattern, { exclude, withFileTypes: true }).map(async (dirent) => {
+      const uri = path.join(dirent.parentPath, dirent.name);
+      // 保持结构时只接受 cwd 内路径，越界（..）退化为平铺，避免写到 target 之外
+      const rel = path.relative(root, uri);
+      const dest = preserveDir && !rel.startsWith("..")
+        ? path.join(target, rel)
+        : path.join(target, dirent.name);
+
+      // 目录命中只负责建目录（内容由 glob 命中的文件逐个复制，避免整棵树重复拷贝）
+      if (dirent.isDirectory()) {
+        if (!copyEmptyDir) return null;
+        await fs.promises.mkdir(dest, { recursive: true });
+        return dest;
+      }
+
+      // 文件交给 cp：自动建父级目录、同名覆盖
+      await fs.promises.cp(uri, dest, { force: true });
+      return dest;
+    }),
+  );
+
+  return destList.filter((dest) => dest !== null);
+}
+

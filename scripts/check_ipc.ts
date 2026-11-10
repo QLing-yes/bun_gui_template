@@ -7,20 +7,20 @@ const read = (p: string) => readFileSync(join(root, p), "utf8");
 /** Rust 侧真身：#[tauri::command] 定义的函数名 */
 function rustCommands(): string[] {
     const src = read("src-tauri/src/commands.rs");
-    return [...src.matchAll(/#\[tauri::command\]\s*(?:pub )?fn\s+(\w+)/g)].map(m => m[1]);
+    return [...src.matchAll(/#\[tauri::command\]\s*(?:pub )?fn\s+(\w+)/g)].map(m => m[1]!);
 }
 
 /** Rust 侧注册：generate_handler! 列表（漏注册=前端 invoke 直接失败） */
 function registeredCommands(): string[] {
     const src = read("src-tauri/src/lib.rs");
     const block = src.match(/generate_handler!\[(.*?)\]/s)?.[1] ?? "";
-    return [...block.matchAll(/commands::(\w+)/g)].map(m => m[1]).map(s => s.trim());
+    return [...block.matchAll(/commands::(\w+)/g)].map(m => m[1]!.trim());
 }
 
 /** Rust 侧 emit 的事件名 */
 function rustEvents(): string[] {
     const src = read("src-tauri/src/commands.rs") + read("src-tauri/src/sidecar.rs") + read("src-tauri/src/lib.rs");
-    return [...src.matchAll(/emit\(\s*"([^"]+)"/g)].map(m => m[1]);
+    return [...src.matchAll(/emit\(\s*"([^"]+)"/g)].map(m => m[1]!);
 }
 
 /** TS 侧 IPC 常量表（web 只用这里的名字，不再散写字符串） */
@@ -28,7 +28,7 @@ function tsMap(block: string, file: string): string[] {
     const src = read(file);
     const body = src.match(new RegExp(`${block} = \\{.*?\\} as const`, "s"))?.[0];
     if (!body) throw new Error(`未找到 ${block}（src-web/src/lib/tauri/index.ts）`);
-    return [...body.matchAll(/:\s*"([^"]+)"/g)].map(m => m[1]);
+    return [...body.matchAll(/:\s*"([^"]+)"/g)].map(m => m[1]!);
 }
 
 const IPC_FILE = "src-web/src/lib/tauri/index.ts";

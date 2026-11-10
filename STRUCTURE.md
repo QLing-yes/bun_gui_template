@@ -136,7 +136,7 @@ lib/：
 - `app/plugins/` — 控制器注册 / macro / schema 插件；`app/utils/` — file / watch / menu-ui 通用工具 + `index.ts` 聚合导出
 - `system/script/` — `index.ts`（dev 生成入口：串起 routes/batchExport/genApiTypes，并指定 gen-api 输出到 src-web）/ build / build_tauri_bun（产出 sidecar 二进制）/ genApiTypes（产出声明式 API 类型树）/ routes（顶层路由前缀全部组合导出，漏导出=该前缀不可达）/ menu / batchExport；`system/types/global.d.ts` — `$g` 全局声明（genApiTypes 显式纳入）；`system/generated/` — 派生产物（勿手改）
 - `public/` — 服务静态资源；`logs/` — 运行日志
-- 产物 `bun-service-<target>.exe|.map` — tauri sidecar 二进制（externalBin 引用）
+- 产物 `dist/bun-service-<target>.exe|.map` — tauri sidecar 二进制（externalBin 指向 `../dist/bun-service`，Tauri 再复制为 `target/release/bun-service.exe`）
 
 ## src-tauri/（Tauri v2，Rust 桌面壳）
 

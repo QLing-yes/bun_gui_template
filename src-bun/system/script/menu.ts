@@ -9,7 +9,12 @@
  */
 
 import { entry, execCmd, type MenuItem } from "@/app/utils/menu-ui.ts";
-import { build, main } from "./build.ts";
+import { build as bunBuild, main } from "./build.ts";
+import { join } from "node:path";
+
+const build = (target: Bun.Build.CompileTarget) => {
+  return bunBuild({ compile: { target, outfile: join(process.cwd(), `./dist/${target}`) } });
+}
 
 // ── 菜单数据 ─────────────────────────────────────────────────
 

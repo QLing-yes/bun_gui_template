@@ -1,10 +1,14 @@
-import { cp, rm, stat } from "node:fs/promises";
-import { basename, join } from "node:path";
+import { join } from "node:path";
+import fs from "node:fs";
 import { pipe_out } from "./spawn.ts";
+import { copyTo } from "../src-bun/app/utils/file.ts";
 
 const root = process.cwd();
 
 // --------------------------------- 流程 ---------------------------------
+
+// 构建前清空产物目录，避免旧文件残留
+fs.rmSync(join(root, "dist"), { recursive: true, force: true });
 
 await check_ipc()
 await build_config()
@@ -14,7 +18,7 @@ await Promise.all([
 ])
 console.log("\n\x1b[33m🔄 Tauri 构建中...\x1b[0m\n");
 await build_tauri()
-console.log("\n\x1b[32m✅ Tauri 构建完成\x1b[0m\n");
+// console.log("\n\x1b[32m✅ Tauri 构建完成\x1b[0m\n");
 await dist();
 console.log("\n\x1b[32m✅ 全部构建完成\x1b[0m\n");
 process.exit(0);
@@ -78,41 +82,16 @@ async function build(tag: string, command: string, cwd = "") {
     }
     return code;
 }
-/** 清空 dist 目录后并行复制发布产物，缺失项打印警告并跳过
- * @returns 发布完成的 Promise，复制失败时抛出错误
- */
+/** 复制发布产物到 dist 目录：主程序、sidecar、运行期 .env 需与主程序同级 */
 async function dist() {
-    /** 发布产物源路径（相对项目根目录） */
-    const items = [
-        "src-tauri/target/release/AIGC.exe",
-        "src-tauri/target/release/bun-service.exe",
-        ".env",
-        "src-bun/public",
-    ];
-    const out = join(root, "dist");
-    const begin = performance.now();
-    console.log(`\n\x1b[33m🔄 [dist] 清理输出目录 ${out}\x1b[0m`);
-    await rm(out, { recursive: true, force: true });
-
-    let copied = 0;
-    let skipped = 0;
-    let bytes = 0;
-    await Promise.all(items.map(async (item) => {
-        const source = join(root, item);
-        const info = await stat(source).catch(() => null); // 源不存在时跳过
-        if (!info) {
-            skipped++;
-            console.warn(`\x1b[33m⚠️ [dist] 源不存在，跳过：${item}\x1b[0m`);
-            return;
-        }
-        const start = performance.now();
-        await cp(source, join(out, basename(item)), { recursive: true, force: true });
-        copied++;
-        bytes += info.isFile() ? info.size : 0;
-        const size = info.isFile() ? `，${(info.size / 1024 / 1024).toFixed(1)} MB` : "";
-        console.log(`\x1b[32m✅ [dist] ${item} → dist/${basename(item)} （${(performance.now() - start).toFixed(0)} ms${size}）\x1b[0m`);
-    }));
-
-    const ms = (performance.now() - begin).toFixed(0);
-    console.log(`\x1b[32m✅ [dist] 复制${copied}项，跳过${skipped}项 → ${out} （${ms} ms，${(bytes / 1024 / 1024).toFixed(1)} MB）\x1b[0m\n`);
+    await copyTo({
+        target: `${root}/dist`,
+        pattern: [
+            `${root}/src-tauri/target/release/aigc.exe`,
+            `${root}/src-tauri/target/release/bun-service.exe`,
+            `${root}/.env`,
+        ],
+        preserveDir: false,
+    });
+    for (const p of fs.globSync(`${root}/dist/bun-service-*`)) fs.rmSync(p, { force: true });
 }

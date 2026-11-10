@@ -4,9 +4,9 @@
  * @param source 来源对象
  * @returns 合并后的 target
  */
-export function mergeDeep<T extends Record<string, any>>(
+export function mergeDeep<T extends Record<string, any>, O extends Record<string, any>>(
     target: T,
-    source: Record<string, any>,
+    source: O,
 ): T {
     for (const key of Object.keys(source)) {
         const sourceVal = source[key];

@@ -1,35 +1,24 @@
-import { join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { aot } from "elysia/plugin/aot/bun";
+import { mergeDeep } from "@/app/utils";
+import { copyTo } from "@/app/utils/file";
 
-/** 项目根目录（当前脚本位于 system/script，需上溯两级） */
-const root = join(import.meta.dir, "../..");
+const root = process.cwd();
 /** 应用入口文件绝对路径 */
-export const main = join(root, "app/cluster.ts");
+export const main = join(root, "./app/cluster.ts");
 /** AOT 预编译指向文件绝对路径 */
-const aotEntry = join(root, "app/index.ts");
-/** 构建产物输出目录（项目根目录，已由 .gitignore 忽略 bun-*.*） */
-export const outdir = root;
+const aotEntry = join(root, "./app/index.ts");
 
 /**
- * Bun 跨平台单文件可执行文件构建函数
- * 将 TypeScript/JavaScript 项目编译为独立的二进制可执行文件，支持多目标平台
- *
- * @param target - 编译目标平台，格式为 bun-{os}-{arch}，如 "bun-linux-x64"
- * @param outDir - 可选自定义输出目录，不提供则输出到项目根目录
- * @param fileName - 可选自定义输出文件名，不提供则使用 target 名称
+ * @param config - Bun的构建配置
  * @returns Bun 构建结果 Promise
  */
 export async function build(
-  target: Bun.Build.CompileTarget,
-  outDir?: string,
-  fileName?: string
+  config: Partial<Bun.BuildConfig>,
 ) {
   console.log("\n\x1b[33m🔄 Bun构建中...\x1b[0m\n");
-  // 输出关键路径，便于排查入口解析问题
-  const outfile = join(outDir || outdir, fileName || target);
-  // 判断是否为 Windows 平台，用于条件应用 Windows 专属配置
-  // const isWindows = target.includes("windows");
-  await Bun.build({
+
+  const op: Bun.BuildConfig = mergeDeep({
     // AOT 预编译：指向真实的 Elysia 实例导出文件
     plugins: [aot(aotEntry)],
     // 入口文件路径：指定应用的启动文件
@@ -45,36 +34,17 @@ export async function build(
     // 单文件编译核心配置
     compile: {
       // 目标平台：指定跨编译的目标操作系统和架构
-      target,
+      // target,
       // 输出文件路径：自定义文件名或使用目标平台名称，Windows 自动添加 .exe
-      outfile,
-      // 运行时自动加载 tsconfig.json（默认关闭，显式开启）
-      autoloadTsconfig: true,
-      // 运行时自动加载 package.json（默认关闭，显式开启）
-      autoloadPackageJson: true,
+      // outfile,
       // 运行时自动加载 .env 环境变量文件（默认开启）
       autoloadDotenv: true,
       // 运行时自动加载 bunfig.toml 配置文件（默认开启）
       autoloadBunfig: true,
-      // Windows 平台专属配置（条件展开）
-      // ...(isWindows && {
-      //   windows: {
-      //     // 应用图标路径：.ico 格式图标文件
-      //     icon: "public/icon.ico",
-      //     // 隐藏控制台窗口：GUI 应用设为 true，CLI 应用设为 false
-      //     hideConsole: false,
-      //     // 文件属性中的程序标题
-      //     title: "",
-      //     // 文件属性中的发布者名称
-      //     publisher: "",
-      //     // 文件属性中的版本号
-      //     version: "1.0.0",
-      //     // 文件属性中的应用描述
-      //     description: "",
-      //     // 文件属性中的版权声明
-      //     copyright: "",
-      //   }
-      // })
+      // 运行时自动加载 tsconfig.json（默认关闭，显式开启）
+      autoloadTsconfig: true,
+      // 运行时自动加载 package.json（默认关闭，显式开启）
+      autoloadPackageJson: true,
     },
 
     // 代码压缩配置
@@ -100,7 +70,33 @@ export async function build(
       // 注入生产环境标识：代码中 process.env.NODE_ENV 会被直接替换为 "production"
       "process.env.NODE_ENV": "production",
     },
-  });
-  console.log(`\x1b[32m✅ Bun构建完成 : ${outfile}\x1b[0m\n`);
+  }, config);
+
+  await Bun.build(op);
+
+  /** 编译选项对象：compile 为 true 或目标字符串时没有附加选项 */
+  const compileOption = typeof op.compile === "object" ? op.compile : undefined;
+  /** 构建输出目录：产物文件所在目录 → outdir → 项目根目录 */
+  const target = resolve(
+    root,
+    compileOption?.outfile ? dirname(compileOption.outfile) : (op.outdir ?? "."),
+  );
+
+  await copyTo({
+    target,
+    // 运行期配置与静态资源：当前可能不存在，存在即随产物分发（glob 无命中时为空操作）
+    pattern: [
+      `${root}/.env`,
+      `${root}/.env.*`,
+      `${root}/bunfig.toml`,
+      `${root}/tsconfig.json`,
+      `${root}/package.json`,
+      `${root}/public/**/*`,
+    ],
+    exclude: ["**/node_modules/**"],
+    copyEmptyDir: true,
+  })
+
+  console.log(`\x1b[32m✅ Bun构建完成 \x1b[0m\n`);
   process.exit(0);
 }
