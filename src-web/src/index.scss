@@ -621,6 +621,14 @@ body {
   top: 0;
   bottom: 0;
   width: 100%;
+  /* 离屏槽跳过整棵子树的布局与绘制（保活页不再随无关失效重排）；槽尺寸来自 top/bottom/width 显式声明，跳过时不塌缩；
+     滚动位置与组件状态仍在 DOM 里，回屏即恢复；旧运行时不认该属性＝维持原行为 */
+  content-visibility: auto;
+}
+
+/* 平移期间所有槽强制渲染：入屏页必须在平移第一帧就完整可见，不能靠交叉判定补渲染 */
+[data-slot="page-track"][data-panning] [data-slot="page-track-slot"] {
+  content-visibility: visible;
 }
 
 /* 冻结：平移结束后非当前槽整棵子树不参与绘制与命中，只保留 DOM 与组件状态（含各自滚动位置） */

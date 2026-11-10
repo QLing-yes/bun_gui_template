@@ -1,16 +1,9 @@
 // 侧栏底部用户区：头像+用户名+设置icon；点击弹出操作菜单（明暗模式内嵌选项切换、个性化、设置、登录/退出）
 
-import {
-  ContrastIcon,
-  LogInIcon,
-  LogOutIcon,
-  PaletteIcon,
-  SettingsIcon,
-  UserIcon,
-} from "lucide-react"
 import { useState } from "react"
 import { useNavigate } from "react-router"
 
+import { AppIcon } from "@/components/icons"
 import { SIDEBAR_LABEL_CLASS } from "@/components/layout/class-names"
 import { ThemeMenu } from "@/components/layout/theme-menu"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
@@ -26,10 +19,8 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
+import { OVERLAY_CLOSE_MS } from "@/lib/motion"
 import { useAuthStore } from "@/store/auth"
-
-/** 浮层关闭时长：菜单还开着就切页/切主题，全屏动画会在浮层背后跑完（等于看不见），等浮层消失再动 */
-const MENU_CLOSE_MS = 120
 
 export function SidebarUser() {
   const navigate = useNavigate()
@@ -40,7 +31,7 @@ export function SidebarUser() {
 
   /** 菜单项切页：延后到菜单消失，动画本体仍由路由轨道决定 @param to 目标地址 */
   const goTo = (to: string) => {
-    window.setTimeout(() => navigate(to), MENU_CLOSE_MS)
+    window.setTimeout(() => navigate(to), OVERLAY_CLOSE_MS)
   }
 
   return (
@@ -55,7 +46,7 @@ export function SidebarUser() {
                   {username ? (
                     username.charAt(0).toUpperCase()
                   ) : (
-                    <UserIcon className="size-4 shrink-0" />
+                    <AppIcon name="user" size={16} />
                   )}
                 </AvatarFallback>
               </Avatar>
@@ -65,7 +56,11 @@ export function SidebarUser() {
                   {username ?? "未登录"}
                 </span>
               </div>
-              <SettingsIcon className="ml-auto size-4 shrink-0 transition-opacity group-data-[collapsible=icon]:opacity-0" />
+              <AppIcon
+                name="settings"
+                size={16}
+                className="ml-auto transition-opacity group-data-[collapsible=icon]:opacity-0"
+              />
             </DropdownMenuTrigger>
             <DropdownMenuContent
               side="top"
@@ -78,33 +73,33 @@ export function SidebarUser() {
                 className="flex items-center gap-2 px-1.5 py-1 text-sm"
                 onClick={(e) => e.stopPropagation()}
               >
-                <ContrastIcon className="size-4 shrink-0" />
+                <AppIcon name="contrast" size={16} />
                 <span className="flex-1">明暗模式</span>
                 {/* 侧栏形态：滑完游标先收菜单，切换事务再等浮层消失；命中当前档不触发收菜单 */}
                 <ThemeMenu
                   skipSame
                   onSlideDone={() => setOpen(false)}
-                  settleExtraMs={MENU_CLOSE_MS}
+                  settleExtraMs={OVERLAY_CLOSE_MS}
                 />
               </div>
               <DropdownMenuItem
                 onClick={() => goTo("/settings?section=personalize")}
               >
-                <PaletteIcon className="size-4 shrink-0" />
+                <AppIcon name="palette" size={16} />
                 个性化
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => goTo("/settings")}>
-                <SettingsIcon className="size-4 shrink-0" />
+                <AppIcon name="settings" size={16} />
                 设置
               </DropdownMenuItem>
               {username ? (
                 <DropdownMenuItem onClick={logout}>
-                  <LogOutIcon className="size-4 shrink-0" />
+                  <AppIcon name="logOut" size={16} />
                   退出登录
                 </DropdownMenuItem>
               ) : (
                 <DropdownMenuItem onClick={() => goTo("/login")}>
-                  <LogInIcon className="size-4 shrink-0" />
+                  <AppIcon name="logIn" size={16} />
                   去登录
                 </DropdownMenuItem>
               )}

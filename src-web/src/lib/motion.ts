@@ -34,6 +34,9 @@ const SHAKE = {
   ease: "outQuad",
 } as const
 
+/** 浮层关闭后再切页/切主题的等待下限（ms）：浮层还开着就动，全屏动画会在浮层背后跑完 */
+export const OVERLAY_CLOSE_MS = 120
+
 /** 是否偏好减少动效（命中则入场跳过；CSS 侧另有全局压平） */
 export function prefersReducedMotion(): boolean {
   return window.matchMedia("(prefers-reduced-motion: reduce)").matches

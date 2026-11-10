@@ -20,6 +20,8 @@ export default defineConfig([
     },
     rules: {
       'react-refresh/only-export-components': 'off',
+      // 下划线前缀=故意占位（CLI 官方件解构弃用 prop 等），豁免 unused 检查
+      '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
       // 架构边界：Tauri IPC 只允许在 @/lib/tauri，Eden 只允许在 @/lib/api，IndexedDB 只允许在 @/lib/storage
       'no-restricted-imports': ['error', {
         patterns: [

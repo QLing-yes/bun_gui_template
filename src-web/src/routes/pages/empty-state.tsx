@@ -3,10 +3,11 @@
 // - 没有访问权限：路由权限声明未通过（菜单点击与直接输入地址都落到这里）
 // 路径回显取当前槽的 Location（由路由轨道覆盖为冻结地址）；返回上一页按历史可用性出现
 
-import { FileQuestionMarkIcon, LockIcon } from "lucide-react"
 import { useEffect } from "react"
 import { useLocation, useNavigate } from "react-router"
 
+import { AppIcon } from "@/components/icons"
+import type { AppIconName } from "@/components/icons"
 import { FILL_CLASS, PAGE_PAD_CLASS } from "@/components/layout/class-names"
 import { PageCanvas } from "@/components/layout/page-canvas"
 import { Button } from "@/components/ui/button"
@@ -37,10 +38,13 @@ type EmptyStatePageProps = {
 }
 
 /** 两种语义的标题与图标 */
-const EMPTY_COPY = {
-  "not-found": { title: "页面不存在", icon: FileQuestionMarkIcon },
-  forbidden: { title: "没有访问权限", icon: LockIcon },
-} as const
+const EMPTY_COPY: Record<
+  "not-found" | "forbidden",
+  { title: string; icon: AppIconName }
+> = {
+  "not-found": { title: "页面不存在", icon: "fileQuestionMark" },
+  forbidden: { title: "没有访问权限", icon: "lock" },
+}
 
 /**
  * 通用空状态页：图标 + 标题 + 说明（路径/所需权限）+ 返回动作
@@ -49,7 +53,7 @@ const EMPTY_COPY = {
 function EmptyStatePage({ kind, path, access }: EmptyStatePageProps) {
   const navigate = useNavigate()
   const { canGoBack } = useHistoryNav()
-  const { title, icon: Icon } = EMPTY_COPY[kind]
+  const { title, icon } = EMPTY_COPY[kind]
 
   // 关键位置日志：未知路径命中 / 无权限命中（含判定依据）
   useEffect(() => {
@@ -74,7 +78,7 @@ function EmptyStatePage({ kind, path, access }: EmptyStatePageProps) {
         <Empty>
           <EmptyHeader>
             <EmptyMedia variant="icon">
-              <Icon />
+              <AppIcon name={icon} size={24} />
             </EmptyMedia>
             <EmptyTitle>{title}</EmptyTitle>
             <EmptyDescription>
@@ -94,7 +98,7 @@ function EmptyStatePage({ kind, path, access }: EmptyStatePageProps) {
               </p>
             )}
             <div className="flex flex-wrap items-center justify-center gap-2">
-              <Button onClick={() => navigate("/")}>返回首页</Button>
+              <Button onClick={() => navigate("/")}>返回新建项目</Button>
               {canGoBack && (
                 <Button variant="outline" onClick={() => navigate(-1)}>
                   返回上一页

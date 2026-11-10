@@ -9,7 +9,8 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
 import type { ReactNode } from "react"
 
-import { PanelBottomCloseIcon, PanelRightCloseIcon } from "lucide-react"
+import { AppIcon } from "@/components/icons"
+import type { AppIconName } from "@/components/icons"
 import { usePanelRef } from "react-resizable-panels"
 import type {
   Layout,
@@ -49,8 +50,8 @@ const AUTO_COLLAPSE_W = MAIN_MIN_W + RIGHT_MIN_W
 /** 内容区高度低于此值自动收起底栏（固定常量＝主内容最小高 + 底栏最小高） */
 const AUTO_COLLAPSE_H = MAIN_MIN_H + BOTTOM_MIN_H
 
-/** 右栏默认占比（%） */
-const RIGHT_DEFAULT_PCT = 24
+/** 右栏默认占比（%）：首次无记录时约占 1/3 */
+const RIGHT_DEFAULT_PCT = 33
 
 /** 底栏默认占比（%） */
 const BOTTOM_DEFAULT_PCT = 25
@@ -106,12 +107,12 @@ type AutoCollapsed = {
 /** 过渡方向：open=几何先走、内容后淡入；close=内容先淡出、几何后收（由 CSS 错峰实现） */
 type SplitAnimDir = "open" | "close"
 
-/** 默认布局：右栏约 1/4 宽、底栏约 1/4 高 */
+/** 默认布局（仅首次无记录时生效）：右栏约 1/3 宽、底栏约 1/4 高，默认都收起 */
 const DEFAULT_SPLIT: ContentSplit = {
   right: RIGHT_DEFAULT_PCT,
   bottom: BOTTOM_DEFAULT_PCT,
-  rightCollapsed: false,
-  bottomCollapsed: false,
+  rightCollapsed: true,
+  bottomCollapsed: true,
 }
 
 /** 比例收敛到合法区间 @param value 原始值 @returns 百分比 */
@@ -154,14 +155,23 @@ function animDurationMs(el: HTMLElement, token: string): number {
   return raw.endsWith("ms") ? value : raw.endsWith("s") ? value * 1000 : value
 }
 
-/** 同步面板到目标收起态；库内已是该态时为空操作 @param panel 面板句柄 @param collapsed 是否收起 */
+/** 同步面板到目标收起态；库内已是该态时为空操作
+ *  展开必须显式 resize 到本层记录尺寸：库的 expand() 恢复「最近一次尺寸」，
+ *  而默认收起时面板挂载即被收、从未有过展开尺寸，回退的是 0/min 而非 defaultSize
+ * @param panel 面板句柄 @param collapsed 是否收起 @param sizePct 展开目标占比（%） */
 function applyCollapse(
   panel: PanelImperativeHandle | null,
-  collapsed: boolean
+  collapsed: boolean,
+  sizePct: number
 ): void {
   if (!panel) return
-  if (collapsed) panel.collapse()
-  else panel.expand()
+  if (collapsed) {
+    panel.collapse()
+    return
+  }
+  if (!panel.isCollapsed()) return
+  panel.expand()
+  panel.resize(`${sizePct}%`)
 }
 
 /** 面板占位内容：标题行右侧关闭按钮 + 说明（展开入口仍只在标题栏/热键）
@@ -184,13 +194,12 @@ function PanelPlaceholder({
   /** 是否已收起（收起后整块退出命中与朗读） */
   hidden: boolean
   /** 关闭图标（与标题栏该面板开关的「已展开」图标同一枚） */
-  closeIcon: typeof PanelRightCloseIcon
+  closeIcon: AppIconName
   /** 关闭按钮的无障碍名称 */
   closeLabel: string
   /** 关闭（收起）动作 */
   onClose: () => void
 }) {
-  const CloseIcon = closeIcon
   return (
     <div
       data-slot="content-split-panel-body"
@@ -206,7 +215,7 @@ function PanelPlaceholder({
           variant="ghost"
           button={{ onClick: onClose, "aria-label": closeLabel }}
         >
-          <CloseIcon className="size-4 shrink-0" />
+          <AppIcon name={closeIcon} size={16} />
         </IconAction>
       </div>
       <p className="min-w-0 text-xs leading-relaxed break-words text-muted-foreground">
@@ -455,8 +464,8 @@ export function ContentLayout({ children }: { children: ReactNode }) {
       if (offBottom) el.dataset.offBottom = "true"
       else delete el.dataset.offBottom
     }
-    applyCollapse(rightRef.current, offRight)
-    applyCollapse(bottomRef.current, offBottom)
+    applyCollapse(rightRef.current, offRight, sizeRef.current.right)
+    applyCollapse(bottomRef.current, offBottom, sizeRef.current.bottom)
   }, [
     rightCollapsed,
     bottomCollapsed,
@@ -604,7 +613,7 @@ export function ContentLayout({ children }: { children: ReactNode }) {
                 description="这里是内容区右侧面板的占位区域，后续用于放置辅助信息或工具。拖动左侧分割线可调整宽度；标题行右侧的关闭按钮可收起，再次展开请用标题栏开关或快捷键。"
                 side="right"
                 hidden={rightOff}
-                closeIcon={PanelRightCloseIcon}
+                closeIcon="panelRightClose"
                 closeLabel="关闭右侧栏"
                 onClose={closeRight}
               />
@@ -631,7 +640,7 @@ export function ContentLayout({ children }: { children: ReactNode }) {
             description="这里是内容区底部面板的占位区域（横跨整条内容区），后续用于放置日志、状态或操作栏。拖动上方分割线可调整高度；标题行右侧的关闭按钮可收起，再次展开请用标题栏开关或快捷键。"
             side="bottom"
             hidden={bottomOff}
-            closeIcon={PanelBottomCloseIcon}
+            closeIcon="panelBottomClose"
             closeLabel="关闭底栏"
             onClose={closeBottom}
           />

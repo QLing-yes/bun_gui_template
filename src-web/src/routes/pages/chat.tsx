@@ -1,272 +1,185 @@
-// AI 对话示例页：AI Elements 聊天原语 + useChat 流式对话（后端 /api/chat 转发 OpenAI 兼容接口）
+// AI 对话页适配层：地址 → ChatSession 数据，聊天本体在 components/chat（三种地址共用同一组件、不同数据驱动）
+// 地址三态：/ 或 ?draft=新建项目草稿、/chat?project=&draft=项目内新对话草稿、/chat?id=续聊已存对话
+// 草稿首条 AI 回复完整完成才落库（停止/断线/报错不算），随后 replace 到 /chat?id= 并请求 AI 命名
 
-import { useChat } from "@ai-sdk/react"
-import type { UIMessage } from "ai"
-import {
-  ArrowUpIcon,
-  BotIcon,
-  LoaderCircleIcon,
-  SquareIcon,
-} from "lucide-react"
-import { memo, useMemo, useState } from "react"
-import ReactMarkdown from "react-markdown"
-import remarkGfm from "remark-gfm"
+import type { ChatStatus, UIMessage } from "ai"
+import { useEffect, useState } from "react"
+import { useLocation, useNavigate } from "react-router"
 
+import { Chat } from "@/components/chat"
+import type { ChatSession } from "@/components/chat"
+import { AppIcon } from "@/components/icons"
 import { FILL_CLASS } from "@/components/layout/class-names"
 import { PageCanvas } from "@/components/layout/page-canvas"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { StaggerReveal } from "@/components/stagger-reveal"
-import { Bubble, BubbleContent } from "@/components/ui/bubble"
+import { Button } from "@/components/ui/button"
 import {
   Empty,
-  EmptyDescription,
   EmptyHeader,
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty"
+import { requestTitle } from "@/lib/chat"
+import { useChatDraftsStore } from "@/store/chat-drafts"
+import { useChatRunsStore } from "@/store/chat-runs"
 import {
-  InputGroup,
-  InputGroupAddon,
-  InputGroupButton,
-  InputGroupTextarea,
-} from "@/components/ui/input-group"
-import { Message, MessageContent } from "@/components/ui/message"
-import {
-  MessageScroller,
-  MessageScrollerButton,
-  MessageScrollerContent,
-  MessageScrollerItem,
-  MessageScrollerProvider,
-  MessageScrollerViewport,
-} from "@/components/ui/message-scroller"
-import { Trace, TraceIcon, TraceLine, TraceTitle } from "@/components/ui/trace"
-import { createChatTransport } from "@/lib/chat"
+  CONVERSATION_PLACEHOLDER,
+  PROJECT_PLACEHOLDER,
+  useProjectsStore,
+} from "@/store/projects"
 import { cn } from "cn"
 
-/** 对话消息流与输入条共用的定宽列（两侧内边距由各自补充） */
-const CHAT_COLUMN_CLASS = "mx-auto w-full max-w-2xl"
+/** 草稿空消息常量（稳定引用） */
+const EMPTY_MESSAGES: UIMessage[] = []
 
-/** 提取服务端错误的可读文案（优先 JSON error 字段）
- * @param message 原始错误文本 @returns 展示文本 */
-function extractErrorText(message: string): string {
-  try {
-    const parsed = JSON.parse(message) as { error?: unknown }
-    if (typeof parsed?.error === "string") return parsed.error
-  } catch {
-    /* 非 JSON 原样展示 */
-  }
-  return message
-}
-
-/** 拼接消息里的全部文本分片 @param message 消息 @param sep 分片分隔符 @returns 纯文本 */
-function textOf(message: UIMessage, sep = ""): string {
-  return message.parts
-    .filter((part) => part.type === "text")
-    .map((part) => part.text)
-    .join(sep)
-}
-
-/** 单条消息：用户右侧气泡纯文本，助手左侧 Markdown 排版；memo 隔离流式期整列表重渲染 */
-const ChatMessage = memo(function ChatMessage({
-  message,
-}: {
-  message: UIMessage
-}) {
-  if (message.role === "user") {
-    return (
-      <Message align="end">
-        <MessageContent>
-          <Bubble align="end" variant="muted">
-            <BubbleContent>{textOf(message)}</BubbleContent>
-          </Bubble>
-        </MessageContent>
-      </Message>
-    )
-  }
-
-  return (
-    <Message align="start">
-      <MessageContent>
-        <Bubble variant="ghost">
-          <BubbleContent>
-            {/* overflow-x-auto: 长表格/代码横向滚动，不撑破气泡 */}
-            <div className="typeset overflow-x-auto">
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                {textOf(message, "\n\n")}
-              </ReactMarkdown>
-            </div>
-          </BubbleContent>
-        </Bubble>
-      </MessageContent>
-    </Message>
-  )
-})
-
-/** 输入区：Enter 发送、Shift+Enter 换行；生成中变为停止按钮 */
-function PromptForm({
-  isBusy,
-  onSubmit,
-  onStop,
-}: {
-  /** 是否正在请求/流式生成 */
-  isBusy: boolean
-  /** 发送消息 @param text 消息文本 */
-  onSubmit: (text: string) => void
-  /** 停止生成 */
-  onStop: () => void
-}) {
-  const [prompt, setPrompt] = useState("")
-
-  /** 发送：清空输入并提交非空文本 */
-  const submit = () => {
-    const text = prompt.trim()
-    if (!text || isBusy) return
-    setPrompt("")
-    onSubmit(text)
-  }
-
-  return (
-    <form
-      onSubmit={(e) => {
-        e.preventDefault()
-        submit()
-      }}
-    >
-      <InputGroup>
-        <InputGroupTextarea
-          rows={1}
-          placeholder="输入消息，Enter 发送，Shift+Enter 换行"
-          className="max-h-40 resize-none"
-          value={prompt}
-          onChange={(e) => setPrompt(e.target.value)}
-          onKeyDown={(e) => {
-            // 输入法组合态的回车是"上屏"，不触发发送
-            if (
-              e.key === "Enter" &&
-              !e.shiftKey &&
-              !e.nativeEvent.isComposing
-            ) {
-              e.preventDefault()
-              submit()
-            }
-          }}
-        />
-        <InputGroupAddon align="block-end">
-          {isBusy ? (
-            <InputGroupButton
-              size="icon-sm"
-              aria-label="停止生成"
-              onClick={(e) => {
-                e.preventDefault()
-                onStop()
-              }}
-            >
-              <SquareIcon className="size-4 shrink-0" />
-            </InputGroupButton>
-          ) : (
-            <InputGroupButton
-              size="icon-sm"
-              type="submit"
-              disabled={!prompt.trim()}
-              aria-label="发送"
-            >
-              <ArrowUpIcon className="size-4 shrink-0" />
-            </InputGroupButton>
-          )}
-        </InputGroupAddon>
-      </InputGroup>
-    </form>
-  )
+/** AI 命名请求 + 占位守卫落库：只覆盖仍为占位名的行（避免盖掉用户手动改名），可反复调用直到落名
+ * @param all 全量消息（命名素材） @param ownerId 归属项目 id @param cid 对话 id @param wantProject 是否需要项目名 @param wantConv 是否需要对话名 */
+function applyTitles(
+  all: UIMessage[],
+  ownerId: string,
+  cid: string,
+  wantProject: boolean,
+  wantConv: boolean
+) {
+  if (!wantProject && !wantConv) return
+  void requestTitle(all, wantProject).then((titles) => {
+    if (!titles) return
+    const latest = useProjectsStore.getState()
+    const conv = latest.conversations.find((c) => c.id === cid)
+    if (wantConv && titles.conversationTitle && conv?.name === CONVERSATION_PLACEHOLDER)
+      latest.renameConversation(cid, titles.conversationTitle)
+    const proj = latest.projects.find((p) => p.id === ownerId)
+    if (wantProject && titles.projectTitle && proj?.name === PROJECT_PLACEHOLDER)
+      latest.renameProject(ownerId, titles.projectTitle)
+    if (import.meta.env.DEV) {
+      console.debug("[title] apply", {
+        convRenamed:
+          wantConv && !!titles.conversationTitle &&
+          conv?.name === CONVERSATION_PLACEHOLDER,
+        projRenamed:
+          wantProject && !!titles.projectTitle &&
+          proj?.name === PROJECT_PLACEHOLDER,
+        convName: conv?.name,
+        projName: proj?.name,
+      })
+    }
+  })
 }
 
 export function ChatPage() {
-  const transport = useMemo(() => createChatTransport(), [])
-  const { messages, sendMessage, status, stop, error } = useChat({ transport })
+  const { pathname, search } = useLocation()
+  const navigate = useNavigate()
+  const params = new URLSearchParams(search)
+  /** 地址里的对话 id（续聊）；draft 参数=草稿登记处标识（落库后清登记） */
+  const conversationId = params.get("id")
+  /** 地址里的项目 id（项目内新对话草稿） */
+  const projectId = params.get("project")
+  /** 地址里的草稿标识（落库后清登记） */
+  const draftId = params.get("draft")
+  const conversation = useProjectsStore((s) =>
+    conversationId
+      ? s.conversations.find((c) => c.id === conversationId)
+      : undefined
+  )
+  /** 草稿首次落库后记住对话 id：本槽被保活重访时后续回复仍写回同一对话 */
+  const [savedId, setSavedId] = useState<string | null>(null)
 
-  /** 请求中（已提交或流式接收） */
-  const isBusy = status === "submitted" || status === "streaming"
+  // 裸地址（直达/刷新）收敛到登记草稿：保证草稿槽恒带 draft 参数且与登记处一致，复用不会命中已落库旧槽
+  useEffect(() => {
+    if (conversationId || draftId) return
+    const drafts = useChatDraftsStore.getState()
+    navigate(drafts.openDraft(projectId ?? "new", projectId ?? undefined), {
+      replace: true,
+    })
+  }, [conversationId, draftId, projectId, navigate])
 
+  /** 本槽地址：生成态登记键（冻结槽各自上报、互不覆盖） */
+  const slotKey = pathname + search
+
+  /** 流式状态 → 生成态登记：submitted/streaming 才登记（对话 id 优先，草稿期记 draft id），其余清除 */
+  const handleStatus = (status: ChatStatus) => {
+    const id = conversationId ?? savedId ?? draftId
+    useChatRunsStore
+      .getState()
+      .setRun(
+        slotKey,
+        id && (status === "submitted" || status === "streaming") ? id : null
+      )
+  }
+
+  // 卸载或地址语义变化清掉本槽生成态标记：流中断/槽裁剪后徽标不残留
+  useEffect(() => {
+    return () => useChatRunsStore.getState().setRun(slotKey, null)
+  }, [slotKey, conversationId, savedId])
+  /** 回复完整完成：续聊写回原对话；草稿建项目/对话并请求 AI 命名（组件经最新 session 回调，闭包即当前地址语义） */
+  const handleComplete = (all: UIMessage[]) => {
+    const id = conversationId ?? savedId
+    const store = useProjectsStore.getState()
+    if (id) {
+      store.setMessages(id, all)
+      // 迟到命名：首轮内容太少没起出名（仍是占位）时，之后每轮完成再试一次，落名后自然停
+      const conv = store.conversations.find((c) => c.id === id)
+      if (conv)
+        applyTitles(
+          all,
+          conv.projectId,
+          id,
+          store.projects.find((p) => p.id === conv.projectId)?.name ===
+            PROJECT_PLACEHOLDER,
+          conv.name === CONVERSATION_PLACEHOLDER
+        )
+      return
+    }
+    // 首条完整回复：建对话；项目参数缺失或已删除时连项目一起建
+    const owner =
+      projectId && store.projects.some((p) => p.id === projectId)
+        ? projectId
+        : store.createProject(PROJECT_PLACEHOLDER)
+    const projectCreated = owner !== projectId
+    const cid = store.addConversation(owner, CONVERSATION_PLACEHOLDER, all)
+    setSavedId(cid)
+    // 草稿已落库成对话：清登记，下次新建开新草稿
+    if (draftId) useChatDraftsStore.getState().clearDraft(draftId)
+    // 流式期间用户可能已切走（本槽被冻结）：只落库不劫持当前地址，槽的 Location 是冻结值、真实地址看 hash
+    if (window.location.hash.replace(/^#/, "") === pathname + search) {
+      navigate(`/chat?id=${cid}`, { replace: true })
+    }
+    // AI 命名：新建项目一次生项目名+对话名，项目内新对话只生对话名；仅覆盖仍为占位名的行，避免盖掉命名期间用户的手动重命名
+    applyTitles(all, owner, cid, projectCreated, true)
+  }
+
+  /** 续聊对话被外部删除：空状态照显，但 Chat 保持挂载接收停流指令（孤儿流不白烧） */
+  const invalidated = Boolean(conversationId && !conversation)
+
+  // 同一组件、不同数据：续聊=已存消息，草稿=空消息；归属差异全在 handleComplete 闭包
+  const session: ChatSession = {
+    messages: conversation?.messages ?? EMPTY_MESSAGES,
+    onComplete: handleComplete,
+    onStatusChange: handleStatus,
+    invalidated,
+  }
   return (
     <PageCanvas>
-      <div className={cn(FILL_CLASS, "flex flex-col")}>
-        {messages.length === 0 ? (
-          <div className="flex flex-1 items-center justify-center p-4 sm:p-6">
-            <StaggerReveal>
-              <Empty>
-                <EmptyHeader>
-                  <EmptyMedia variant="icon">
-                    <BotIcon />
-                  </EmptyMedia>
-                  <EmptyTitle>有什么可以帮您？</EmptyTitle>
-                  <EmptyDescription>
-                    输入消息开始对话，回复经 Vercel AI SDK 流式传输
-                  </EmptyDescription>
-                </EmptyHeader>
-              </Empty>
-            </StaggerReveal>
-          </div>
-        ) : (
-          <MessageScrollerProvider>
-            <MessageScroller className="flex-1">
-              <MessageScrollerViewport>
-                <MessageScrollerContent
-                  className={cn(CHAT_COLUMN_CLASS, "px-4 py-6 sm:px-6")}
-                >
-                  {messages.map((message) => (
-                    <MessageScrollerItem
-                      key={message.id}
-                      messageId={message.id}
-                      scrollAnchor={message.role === "user"}
-                    >
-                      <ChatMessage message={message} />
-                    </MessageScrollerItem>
-                  ))}
-                  {/* 已提交未出字：思考中占位 */}
-                  {status === "submitted" && (
-                    <MessageScrollerItem messageId="thinking">
-                      <Message>
-                        <MessageContent>
-                          <Trace>
-                            <TraceLine status="running">
-                              <TraceIcon>
-                                <LoaderCircleIcon className="animate-spin" />
-                              </TraceIcon>
-                              <TraceTitle>思考中</TraceTitle>
-                            </TraceLine>
-                          </Trace>
-                        </MessageContent>
-                      </Message>
-                    </MessageScrollerItem>
-                  )}
-                </MessageScrollerContent>
-              </MessageScrollerViewport>
-              <MessageScrollerButton />
-            </MessageScroller>
-          </MessageScrollerProvider>
-        )}
-
-        <div
-          className={cn(
-            CHAT_COLUMN_CLASS,
-            "flex flex-col gap-2 px-4 pb-4 sm:px-6 sm:pb-6"
-          )}
-        >
-          {error && (
-            <StaggerReveal>
-              <Alert variant="destructive">
-                <AlertTitle>请求失败</AlertTitle>
-                <AlertDescription>
-                  {extractErrorText(error.message)}
-                </AlertDescription>
-              </Alert>
-            </StaggerReveal>
-          )}
-          <PromptForm
-            isBusy={isBusy}
-            onSubmit={(text) => sendMessage({ text })}
-            onStop={() => stop()}
-          />
+      {invalidated && (
+        <div className={cn(FILL_CLASS, "flex items-center justify-center p-4")}>
+          <Empty>
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                <AppIcon name="bot" size={24} />
+              </EmptyMedia>
+              <EmptyTitle>对话不存在或已删除</EmptyTitle>
+            </EmptyHeader>
+            <Button
+              onClick={() =>
+                navigate(useChatDraftsStore.getState().openDraft("new"))
+              }
+            >
+              新建项目
+            </Button>
+          </Empty>
         </div>
+      )}
+      <div className={cn(invalidated && "hidden")}>
+        <Chat session={session} />
       </div>
     </PageCanvas>
   )

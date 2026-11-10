@@ -6,7 +6,10 @@
 // 纪律例外（显式）：颜色仍只引用语义令牌（类名里不写十六进制），时长与曲线用本文件常量单源，不占全局令牌；
 // 全局 prefers-reduced-motion 的 transition-duration 压平带 !important，会覆盖这里的内联过渡，无需另做降级
 
-import type { ComponentType, MouseEvent } from "react"
+import type { MouseEvent } from "react"
+
+import { AppIcon } from "@/components/icons"
+import type { AppIconName } from "@/components/icons"
 import { useCallback, useEffect, useLayoutEffect, useRef } from "react"
 
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
@@ -17,7 +20,7 @@ import { cn } from "cn"
 export type SwitchOption = {
   value: string
   label: string
-  icon?: ComponentType<{ className?: string }>
+  icon?: AppIconName
 }
 
 /** 圆形点击起点（供调用方做全屏动画的圆心） */
@@ -259,11 +262,9 @@ export function OptionSwitch({
             }
           >
             {option.icon ? (
-              <option.icon
-                className={cn(
-                  "shrink-0",
-                  size === "sm" ? "size-3.5" : "size-4"
-                )}
+              <AppIcon
+                name={option.icon}
+                size={size === "sm" ? 14 : 16}
               />
             ) : null}
             {iconOnly ? null : option.label}

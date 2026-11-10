@@ -1,6 +1,7 @@
 // 标题栏窗口置顶开关：仅桌面端渲染；置顶不随 window-state 持久化，重启默认未置顶，挂载时查询回显真实 OS 态
 
-import { PinIcon, PinOffIcon } from "lucide-react"
+import { AppIcon } from "@/components/icons"
+import type { AppIconName } from "@/components/icons"
 import { useEffect, useState } from "react"
 
 import { IconAction } from "@/components/layout/icon-action"
@@ -28,14 +29,14 @@ export function WindowPin() {
 
   if (!isTauri) return null
 
-  const Icon = pinned ? PinOffIcon : PinIcon
+  const icon: AppIconName = pinned ? "pinOff" : "pin"
 
   return (
     <IconAction
       hint={pinned ? "取消置顶" : "窗口置顶"}
       button={{ "aria-pressed": pinned, onClick: toggle }}
     >
-      <Icon className="size-4 shrink-0" />
+      <AppIcon name={icon} size={16} />
     </IconAction>
   )
 }

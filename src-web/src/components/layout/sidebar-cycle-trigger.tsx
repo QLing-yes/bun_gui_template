@@ -1,10 +1,7 @@
 // 侧栏三态开关：完全显示 → 图标折叠 → 完全隐藏 循环；提示文案描述下一次点击的效果
 
-import {
-  PanelLeftCloseIcon,
-  PanelLeftInactiveIcon,
-  PanelLeftOpenIcon,
-} from "lucide-react"
+import { AppIcon } from "@/components/icons"
+import type { AppIconName } from "@/components/icons"
 
 import { IconAction } from "@/components/layout/icon-action"
 import { useSidebar } from "@/components/ui/sidebar"
@@ -18,10 +15,10 @@ const nextHint: Record<SidebarMode, string> = {
 }
 
 /** 当前状态 → 按钮图标（表现下一次点击的动作；同系 panel-left 图形，避免混用视线符号） */
-const nextIcon: Record<SidebarMode, typeof PanelLeftCloseIcon> = {
-  expanded: PanelLeftCloseIcon,
-  icon: PanelLeftInactiveIcon,
-  hidden: PanelLeftOpenIcon,
+const nextIcon: Record<SidebarMode, AppIconName> = {
+  expanded: "panelLeftClose",
+  icon: "panelLeftInactive",
+  hidden: "panelLeftOpen",
 }
 
 /** 移动端语义是抽屉开合 @param hidden 侧栏是否处于隐藏态 @param open 抽屉是否打开 @returns 下一次点击的提示 */
@@ -45,16 +42,16 @@ export function SidebarCycleTrigger() {
   }
 
   const hidden = sidebarMode === "hidden"
-  const Icon = isMobile
+  const icon: AppIconName = isMobile
     ? openMobile
-      ? PanelLeftCloseIcon
-      : PanelLeftOpenIcon
+      ? "panelLeftClose"
+      : "panelLeftOpen"
     : nextIcon[sidebarMode]
   const hint = isMobile ? mobileHint(hidden, openMobile) : nextHint[sidebarMode]
 
   return (
     <IconAction hint={hint} button={{ onClick: handleClick }}>
-      <Icon className="size-4 shrink-0" />
+      <AppIcon name={icon} size={16} />
     </IconAction>
   )
 }

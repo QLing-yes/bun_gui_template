@@ -12,11 +12,11 @@ import {
   CodeBlockHeader,
   CodeBlockTitle,
 } from "@/components/ui/code-block"
-import { Spinner } from "@/components/ui/spinner"
+import { AppIcon } from "@/components/icons"
 import { client } from "@/lib/api"
 
 export function TestTokenPage() {
-  /** 请求进行中标志（按钮禁用 + Spinner） */
+  /** 请求进行中标志（按钮禁用 + 加载图标） */
   const [loading, setLoading] = useState(false)
   /** 请求结果文本（成功信封或错误信息） */
   const [result, setResult] = useState("")
@@ -45,7 +45,14 @@ export function TestTokenPage() {
       description="验证桌面端 sidecar token 注入链路"
     >
       <Button variant="secondary" disabled={loading} onClick={testToken}>
-        {loading && <Spinner data-icon="inline-start" />}
+        {loading && (
+          <AppIcon
+            name="loadingV2"
+            interaction="loop"
+            size={16}
+            data-icon="inline-start"
+          />
+        )}
         测试 Token 调用 POST /success
       </Button>
       {result && (

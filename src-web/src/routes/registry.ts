@@ -3,20 +3,19 @@
 // 全部由轨道读这张表决定——按钮与页面都不用自己触发切页动画
 // 每页在 handle.nav 上同时携带侧栏导航元数据（名称/图标/顺序）：侧栏由本表派生，不再另存一份页面清单
 
-import { BotIcon, FlaskConicalIcon, HomeIcon, KeyRoundIcon, WorkflowIcon } from "lucide-react"
 import { lazy } from "react"
 import type { ComponentType } from "react"
 import { matchRoutes } from "react-router"
 import type { RouteObject } from "react-router"
 
+import type { AppIconName } from "@/components/icons"
 import type { RevealPolicy } from "@/components/stagger-reveal"
 import type { RouteAccess } from "@/lib/access"
 import { isTauri } from "@/lib/tauri"
-import { HomePage } from "./pages/home"
 import { NotFoundPage } from "./pages/empty-state"
 import { RestrictedDemoPage } from "./pages/restricted-demo"
 
-/** AI 对话页重依赖（ai/react-markdown）单独分包，不进首屏主 bundle */
+/** AI 对话页（默认首页载体）重依赖（ai/react-markdown）单独分包，按需加载 */
 const ChatPage = lazy(() =>
   import("./pages/chat").then((m) => ({ default: m.ChatPage }))
 )
@@ -30,6 +29,10 @@ const SettingsPage = lazy(() =>
 )
 const TestTokenPage = lazy(() =>
   import("./pages/test-token").then((m) => ({ default: m.TestTokenPage }))
+)
+/** 图标光学审计页仅 dev 注册（release 摇树移除） */
+const DevIconsPage = lazy(() =>
+  import("./pages/dev-icons").then((m) => ({ default: m.DevIconsPage }))
 )
 
 /**
@@ -52,7 +55,7 @@ export type RouteMotion = {
  */
 export type RouteNav = {
   label: string
-  icon: typeof HomeIcon
+  icon: AppIconName
   order: number
 }
 
@@ -91,24 +94,21 @@ const PAGE_IN_PAGE: RouteMotion = {
 /** 匹配不到路由时的兜底：与常规页同档 */
 const FALLBACK: RouteMotion = { enter: "pan", query: "slot", reveal: "stagger" }
 
-/** 外壳子路由（index 即首页）；桌面专属页在数组层门控，导航派生自动跟随 */
+/** 外壳子路由（index 即新建项目对话页）；桌面专属页在数组层门控，导航派生自动跟随 */
 export const shellRoutes: RouteObject[] = [
+  // 新建项目：空白 AI 对话，首条回复完成后才落库成项目（地址语义见 pages/chat.tsx）
   {
     index: true,
-    Component: HomePage,
-    handle: handleOf(PAGE, { label: "首页", icon: HomeIcon, order: 0 }),
-  },
-  // AI 对话示例页（Vercel AI SDK + AI Elements）
-  {
-    path: "chat",
     Component: ChatPage,
-    handle: handleOf(PAGE, { label: "AI 对话", icon: BotIcon, order: 1 }),
+    handle: handleOf(PAGE, { label: "新建项目", icon: "edit", order: 0 }),
   },
+  // AI 对话载体页：?id=续聊已存对话、?project=项目内新对话；入口在侧栏项目分区，不进顶部导航
+  { path: "chat", Component: ChatPage, handle: handleOf(PAGE) },
   // 流程测试页（React Flow 示例）
   {
     path: "flow",
     Component: FlowPage,
-    handle: handleOf(PAGE, { label: "流程测试", icon: WorkflowIcon, order: 2 }),
+    handle: handleOf(PAGE, { label: "流程测试", icon: "workflow", order: 1 }),
   },
   // 设置页（分区菜单：快捷键、个性化等）——分区是页内地址，走局部动；入口在用户菜单，不进侧栏导航
   { path: "settings", Component: SettingsPage, handle: handleOf(PAGE_IN_PAGE) },
@@ -120,8 +120,8 @@ export const shellRoutes: RouteObject[] = [
           Component: TestTokenPage,
           handle: handleOf(PAGE, {
             label: "鉴权测试",
-            icon: KeyRoundIcon,
-            order: 3,
+            icon: "key",
+            order: 2,
           }),
         },
       ]
@@ -133,10 +133,14 @@ export const shellRoutes: RouteObject[] = [
     Component: RestrictedDemoPage,
     handle: handleOf(
       PAGE,
-      { label: "受限示例", icon: FlaskConicalIcon, order: 4 },
+      { label: "受限示例", icon: "flaskConical", order: 3 },
       { permission: "demo:restricted", label: "受限示例权限（demo:restricted）", demo: true }
     ),
   },
+  // Dev-only 图标光学审计页：不挂 nav，地址直达 #/dev/icons
+  ...(import.meta.env.DEV
+    ? [{ path: "dev/icons", Component: DevIconsPage, handle: handleOf(PAGE) }]
+    : []),
   // 未知路径兜底（hash 路由）：任何未匹配的子地址落到空状态页，不要求额外权限
   { path: "*", Component: NotFoundPage, handle: handleOf(FALLBACK) },
 ]

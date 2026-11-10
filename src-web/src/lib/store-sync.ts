@@ -5,12 +5,14 @@
 
 import { subscribeStorageChange, STORAGE_KEYS } from "@/lib/storage"
 import { useAuthStore } from "@/store/auth"
+import { useProjectsStore } from "@/store/projects"
 import { useUiStore } from "@/store/ui"
 
 /** 持久化键 → store 灌入动作（新增持久化 store 必须在此登记） */
 const STORE_SYNC: Record<string, () => Promise<void> | void> = {
   [STORAGE_KEYS.ui]: () => useUiStore.persist.rehydrate(),
   [STORAGE_KEYS.auth]: () => useAuthStore.persist.rehydrate(),
+  [STORAGE_KEYS.projects]: () => useProjectsStore.persist.rehydrate(),
 }
 
 /** 已告警过的键（避免每次写入刷屏） */

@@ -18,6 +18,7 @@ import { useStorageHydration } from "@/hooks/use-storage"
 import type { StorageBoot, StoragePhase } from "@/lib/storage"
 import { installStoreSync } from "@/lib/store-sync"
 import { useAuthStore } from "@/store/auth"
+import { useProjectsStore } from "@/store/projects"
 import { useUiStore } from "@/store/ui"
 
 /** 骨架延迟出现阈值（ms）：短于此时长直接不画，避免闪屏 */
@@ -43,6 +44,7 @@ function hydrateStores(): Promise<void> {
     return Promise.all([
       useUiStore.persist.rehydrate(),
       useAuthStore.persist.rehydrate(),
+      useProjectsStore.persist.rehydrate(),
     ]).then(() => {
       if (import.meta.env.DEV) {
         console.debug("[boot] hydration complete")

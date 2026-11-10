@@ -2,12 +2,13 @@
 // 当前分区以 URL 的 `?section=` 为唯一事实（侧栏深链入口靠它）
 // 快捷键数据源为 shortcuts/registry（单一来源）
 
-import { KeyboardIcon, PaletteIcon, RotateCcwIcon } from "lucide-react"
 import { Fragment, useEffect, useMemo, useRef, useState } from "react"
 import type { ComponentType, ReactNode } from "react"
 import { useSearchParams } from "react-router"
 import { useDefaultLayout, type LayoutStorage } from "react-resizable-panels"
 
+import { AppIcon } from "@/components/icons"
+import type { AppIconName } from "@/components/icons"
 import { FILL_CLASS, PAGE_PAD_CLASS } from "@/components/layout/class-names"
 import { PageCanvas } from "@/components/layout/page-canvas"
 import { ThemeMenu } from "@/components/layout/theme-menu"
@@ -74,7 +75,7 @@ type SectionRow = {
   /** 导航与标题文案 */
   label: string
   /** 导航图标 */
-  icon: ComponentType
+  icon: AppIconName
   /** 分区内容 */
   Panel: ComponentType
   /** 标题行右侧动作（无则不占位） */
@@ -317,7 +318,7 @@ function PersonalizeReset() {
 
   return (
     <Button size="sm" variant="outline" onClick={resetPersonalize}>
-      <RotateCcwIcon className="size-4 shrink-0" />
+      <AppIcon name="rotateCcw" size={16} />
       重置
     </Button>
   )
@@ -328,13 +329,13 @@ const sections: readonly SectionRow[] = [
   {
     id: "shortcuts",
     label: "快捷键",
-    icon: KeyboardIcon,
+    icon: "keyboard",
     Panel: ShortcutsPanel,
   },
   {
     id: "personalize",
     label: "个性化",
-    icon: PaletteIcon,
+    icon: "palette",
     Panel: PersonalizePanel,
     action: PersonalizeReset,
   },
@@ -489,7 +490,7 @@ export function SettingsPage() {
       value={sec.id}
       className="flex-none justify-start"
     >
-      <sec.icon />
+      <AppIcon name={sec.icon} />
       {sec.label}
     </TabsTrigger>
   ))

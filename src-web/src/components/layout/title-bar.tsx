@@ -1,6 +1,6 @@
 // 自定义标题栏：侧栏三态开关/前进后退 + 拖动区域 + 主题切换 + 内容区右栏/底栏开关 + 窗口控制
 
-import { ArrowLeftIcon, ArrowRightIcon } from "lucide-react"
+import { AppIcon } from "@/components/icons"
 import { useNavigate } from "react-router"
 
 import { ChromeActions, ChromeGroup } from "@/components/layout/chrome-group"
@@ -26,13 +26,13 @@ export function TitleBar() {
           hint="后退"
           button={{ disabled: !canGoBack, onClick: () => navigate(-1) }}
         >
-          <ArrowLeftIcon className="size-4 shrink-0" />
+          <AppIcon name="arrowLeft" size={16} />
         </IconAction>
         <IconAction
           hint="前进"
           button={{ disabled: !canGoForward, onClick: () => navigate(1) }}
         >
-          <ArrowRightIcon className="size-4 shrink-0" />
+          <AppIcon name="arrowRight" size={16} />
         </IconAction>
       </ChromeGroup>
 

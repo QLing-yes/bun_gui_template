@@ -1,19 +1,29 @@
 # 规则
-摇树：对于支持按需导入和摇树的，必须使用按需导入和摇树，避免全部导入。
-！组件化：能独立成组件的必须组件化（单一文件包含所有内容，除非有共用的样式或逻辑才拆分），提高复用率，减少重复代码。
-光标：注意根据场景和元素切换合适的光标样式。
-屏幕适配：注意需要兼容不同设备屏幕尺寸（如手机、平板、PC 等尺寸），避免在不同设备上显示异常。
-滚动归属：禁止整窗/文档级滚动（html/body/#root overflow 恒 hidden，见 index.scss 裁切规则），滚动只允许区域级容器——壳内一律官方 ScrollArea，AppShell 之外的全屏页自带 `h-svh overflow-y-auto` 滚动盒；禁止调用 `window.scrollTo`/`documentElement.scrollTop` 等文档滚动 API，也不得用 min-h-svh 把撑高推给文档。
-状态持久化：全模块唯一持久化层是 `lib/storage.ts`（Dexie/IndexedDB：库定义、表与索引、幂等迁移、异步读写、按表批量提交、重试、跨窗口同步都在此）。持久化键一律登记在 `STORAGE_KEYS`（值一经发布不可再改，改了等于丢用户数据），组件与 store 里禁止写键名字面量；读写只走异步 `readText`/`writeText`（`writeText(key, value, { immediate: true })` 可跳防抖，`flushStorage` 立即批量提交，页面隐藏/卸载自动 flush；内存为真源，失败降级为 pending/error 并重试），zustand persist 一律经 `storageAdapter` + `skipHydration`，由 `components/app-boot.tsx` 在库装载后统一水合；页面读取的加载/保存态走 `hooks/use-storage.ts`；禁止直连 IndexedDB/localStorage/sessionStorage（ESLint 兜底，仅门面保留首次历史导入与主题首帧 cookie）；第三方库自管的键只做索引登记、不反向接管（`dev/layer-inspector.ts` 零依赖单文件经注入存储是唯一豁免）。
-体验优化: 合适场景主动优化应用体验（视觉、转场、反馈、手感…），按场景挑选最合适的实现方式；取向优先 View Transitions 与 anime.js，细则见 src-web/AGENTS.md「动效与体验优化」。
-动画局部性: 动画只动组件/内容块，禁止整窗位移与整页淡入淡出；切页一律用内容区轨道平移（轮播式，靠 `layout/page-track.tsx` 的 DOM 轨道实现，标题栏与侧栏不参与，非当前页冻结保活），主题切换是唯一允许全屏呈现的动画。
+- 摇树：对于支持按需导入和摇树的，必须使用按需导入和摇树，避免全部导入。
+- ！组件化：能独立成组件的必须组件化（单一文件包含所有内容，除非有共用的样式或逻辑才拆分），提高复用率，减少重复代码。
+- 光标：注意根据场景和元素切换合适的光标样式。
+- 屏幕适配：注意需要兼容不同设备屏幕尺寸（如手机、平板、PC 等尺寸），避免在不同设备上显示异常。
+- 滚动归属：禁止整窗/文档级滚动（html/body/#root overflow 恒 hidden，见 index.scss 裁切规则），滚动只允许区域级容器——壳内一律官方 ScrollArea，AppShell 之外的全屏页自带 `h-svh overflow-y-auto` 滚动盒；禁止调用 `window.scrollTo`/`documentElement.scrollTop` 等文档滚动 API，也不得用 min-h-svh 把撑高推给文档。
+- 状态持久化：全模块唯一持久化层是 `lib/storage.ts`（Dexie/IndexedDB：库定义、表与索引、幂等迁移、异步读写、按表批量提交、重试、跨窗口同步都在此）。持久化键一律登记在 `STORAGE_KEYS`（值一经发布不可再改，改了等于丢用户数据），组件与 store 里禁止写键名字面量；读写只走异步 `readText`/`writeText`（`writeText(key, value, { immediate: true })` 可跳防抖，`flushStorage` 立即批量提交，页面隐藏/卸载自动 flush；内存为真源，失败降级为 pending/error 并重试），zustand persist 一律经 `storageAdapter` + `skipHydration`，由 `components/app-boot.tsx` 在库装载后统一水合；页面读取的加载/保存态走 `hooks/use-storage.ts`；禁止直连 IndexedDB/localStorage/sessionStorage（ESLint 兜底，仅门面保留首次历史导入与主题首帧 cookie）；第三方库自管的键只做索引登记、不反向接管（`dev/layer-inspector.ts` 零依赖单文件经注入存储是唯一豁免）。
+- 体验优化: 合适场景主动优化应用体验（视觉、转场、反馈、手感…），按场景挑选最合适的实现方式；取向优先 View Transitions 与 anime.js，细则见 src-web/AGENTS.md「动效与体验优化」。
+- 动画局部性: 动画只动组件/内容块，禁止整窗位移与整页淡入淡出；切页一律用内容区轨道平移（轮播式，靠 `layout/page-track.tsx` 的 DOM 轨道实现，标题栏与侧栏不参与，非当前页冻结保活），主题切换是唯一允许全屏呈现的动画。
+- CSS优化：优化渲染性能和使用体验（体验收益优先），如 content-visibility、contain、 will-change、...。
+- 懒加载：对非媒体资源和大型资源进行懒加载，优化加载速度避免阻塞页面加载和渲染，保证应用体验。
 
 Tailwind：
 - 如果需要复用类名提取为常量，命名以 Class/Style 结尾（IDE 补全依赖此后缀），定义与.vscode/settings.json。
 - 条件组合用 cn() 或 className 内三元。
 - 禁止变量拼接类名，动态类必须写完整字面量。
 - 覆盖 shadcn 组件内部默认类必须带同变体全类名（如 `group-data-[side=left]:border-r-0`），裸类名赢不了 tailwind-merge。
-- icon 一律显式固定尺寸（`size-4 shrink-0`），不依赖组件的 `[&_svg]` 后代规则。
+- icon 一律经统一入口显式尺寸（`size` 默认 24 对齐 lucide-react；chrome 调用点显式 16/14），不依赖组件的 `[&_svg]` 后代规则。
+
+图标：
+- **使用优先级（逐级往下判，上级有对应图标就用上级）**：① **react-useanimations**（官方 `@useanimations` shadcn registry 件；`AppIcon` 自动路由，`AnimationIcon` 为显式入口）→ ② **lucide-react 静态**；缺对应才降级；禁止自绘 SVG 图标。本阶梯为图标专用规则，UI 组件仍走下方 shadcn 生态阶梯。
+- **动效白名单（当前定档，① 级只登记这五件）**：新建项目 `edit`、明暗三档 `sun`/`moon`/`monitor`、加载 `loadingV2`；其余图标一律 ② 级静态。扩动效需先 `shadcn add @useanimations/<name>` 再补 `UaName`/`UA_SET`/`UA_ICONS`/`UA_OPTICAL_SCALE` 四处登记。
+- 统一入口 `components/icons.tsx`（`AppIcon`/`AnimationIcon`）；业务代码禁止直 import 图标库（登记表内部除外）；新增图标先查 lucide-react 再补登记表一行，登记表只登记在用图标（摇树）。
+- 尺寸走 `size` 参数、className 只接颜色/布局；lottie 分支懒加载独立 chunk，懒加载期回落同名静态图标。
+- 加载动画优先 `loadingV2`（useanimations loading-v2，`interaction="loop"`）；禁止再用 Spinner/Loader 类静态转圈做加载态（ui/spinner 官方件保留但业务不引）。
+- 光学归一：UA 逐图标系数表 `UA_OPTICAL_SCALE`（animation-icon.tsx，实测占盒比推导）+ `--icon-stroke` 描边反补；容器盒=内层盒、aspect-square 锁正方不变形；新增/换图标后走 dev 审计页 `#/dev/icons` 目检 parity 再回改系数表。
 
 ！shadcn ui：
 完全接纳和使用 shadcn 系列的官方全生态，包括组件、主题、插件、...等，尽量避免自己实现和使用其他组件库！！！
@@ -105,11 +115,11 @@ Tailwind：
 - 收起/展开过渡只在按钮与热键触发时播：`content-layout` 在根上临时挂 `data-animating="open|close"`，CSS 过渡面板外层内联 `flex-grow`（库同组两块份额和恒为 100，两侧自然同步缩放）与面板内容 opacity（目标由根上 `data-off-right`/`data-off-bottom` 与布局层同批写入，React 只管 inert/aria-hidden），时长取快档单源 `--push-duration-fast`（200ms）、缓动取 `--ease-push`，内容 0.7 档、错峰 0.3 档（open 几何先走、close 内容先淡出），不得另立常量；连续切换不重播——改写目标值由 CSS 从当前视觉位置折返，计时器只重置。拖动（按下即摘标记）、自动收起、`prefers-reduced-motion`、主题圆形揭示（经 `lib/theme-transition` 的 `onThemeTransitionStart`/`isThemeTransitioning`）一律即时到位，DEV 记 `anim-start`/`anim-retarget`/`anim-end`/`anim-skip`；落盘仍只写收起态布尔最终值，不写动画中间值。
 
 目录规范：按职责独立成目录，互不越界。
-- `components/ui/`：shadcn CLI 生成的组件（勿手改，走 CLI 更新；已知例外见 STRUCTURE.md 的 ui/ 行）。次选 `@ai-elements` 条目是 `registry:component` 类型，按 CLI 归位落在 `components/` 别名下（**不进 `ui/`**），同样属 CLI 生成件、同样勿手改，更新走 CLI。
-- `components/layout/`：应用外壳布局（app-shell/content-layout/content-split-actions/page-canvas/page-track/class-names/chrome-group/icon-action/title-bar/sidebar-body/sidebar-user/sidebar-cycle-trigger/sidebar-peek/sidebar-resizer/theme-menu/window-*（controls/drag-region/pin/bootstrap））。
-- `components/*.tsx`：业务组件与通用外壳件（brand-logo、page-card=单卡片演示页骨架、option-switch=分段/开关通用控件、theme-provider、stagger-reveal=错峰入场容器、storage-status-toast=落库失败全局轻提示）。
+- `components/ui/`：shadcn CLI 生成的组件（勿手改，走 CLI 更新；已知例外见 STRUCTURE.md 的 ui/ 行）。次选 `@ai-elements` 与 `@useanimations` 条目是 `registry:component` 类型，按 CLI 归位落在 `components/` 别名下（**不进 `ui/`**；useanimations 落 `components/animations/` + player `use-animation.tsx`），同样属 CLI 生成件、同样勿手改，更新走 CLI。
+- `components/layout/`：应用外壳布局（app-shell/content-layout/content-split-actions/page-canvas/page-track/class-names/chrome-group/icon-action/title-bar/sidebar-body/sidebar-projects/sidebar-user/sidebar-cycle-trigger/sidebar-peek/sidebar-resizer/theme-menu/window-*（controls/drag-region/pin/bootstrap））。
+- `components/*.tsx`：业务组件与通用外壳件（brand-logo、chat=AI 聊天组件（唯一入口 session 对象驱动，零路由零存储）、icons=图标统一入口（AppIcon 静态/动画合并 + AnimationIcon Lottie，登记表摇树、模块级单例）、page-card=单卡片演示页骨架、option-switch=分段/开关通用控件、theme-provider、stagger-reveal=错峰入场容器、storage-status-toast=落库失败全局轻提示）。
 - `routes/`：路由表 `router.tsx` + 外壳子页表 `registry.ts`（页面归属、`handle.motion` 动效档、`handle.nav` 侧栏导航元数据、`handle.access` 所需权限的唯一声明处；`navItems` 由该表派生）+ 页面 `pages/`（未知路径由 `pages/empty-state` 的「页面不存在」空状态兜底，`registry.ts` 末尾 `path:"*"` 注册、不挂 `nav` 故不进侧栏；无权限由同文件「没有访问权限」空状态呈现；`restricted-demo` 是 `demo:restricted` 演示项，正式接入角色体系后删除；新增路由不得绕过该兜底）。
-- `store/`：zustand 状态（`ui`/`auth` 走 persist；`content-split` 是跨分支共享的收起态运行态单例，不接 persist——持久化仍归 `content-layout` 写单键）。
+- `store/`：zustand 状态（`ui`/`auth`/`projects` 走 persist；`content-split` 是跨分支共享的收起态运行态单例、`chat-drafts` 是未落库草稿登记处（每范围至多一个、复用不重复建）、`chat-runs` 是生成态登记处（槽地址→对话/草稿 id，侧栏生成中指示派生），均不接 persist——content-split 持久化仍归 `content-layout` 写单键）。
 - `hooks/`：通用 React hooks。
 - `lib/`：`tauri/`（IPC 命令与事件常量表 + 窗口能力）、`backend.ts`（后端形态/地址/鉴权头单源）、`api.ts`·`chat.ts`（消费 backend）、`sidebar-channel.ts`（宽度通道）、`glass-channel.ts`（个性化旋钮通道：磨砂两项 + 背景渐变）、`radius-channel.ts`（四角圆角通道）、`motion.ts`（动效单源：时长/缓动/错峰档 + 入场编排，anime.js 唯一入口）、`route-history.ts`（历史位置：历史穿越方向与前进后退可用性的唯一来源）、`storage.ts`（Dexie/IndexedDB 持久化唯一门面：表/索引/迁移/异步读写/批量提交/重试/跨窗口同步/首帧主题 cookie）、`store-sync.ts`（跨窗口 store 同步唯一登记处：持久化键 → store 灌入，未登记键开发环境告警）、`theme-transition.ts`（主题切换事务：手动选择与系统变化共用圆形揭示，优先级 user > system、排队合并、reduced-motion/隐藏/无 VT 降级）、`access.ts`（权限判定单源：路由 `handle.access` → `useAccess`/`canAccessWith`；占位权限来源 `PLACEHOLDER_GRANTS` 按登录用户名，正式接入只替换 `permissionsOf`）。网络请求与令牌注入、localStorage 键名禁止在页面里各写一份。
 - `shortcuts/`：`registry.ts` 是快捷键唯一来源（combo 结构 + 类别 + 生效端；`comboText/entryText` 派生展示、`comboMatches` 供匹配），`webview.ts` 按清单安装 block/hotkey，`sidebar-hotkey.ts` 只挂三态循环，`content-split-hotkey.ts` 只挂右栏/底栏收起切换。新增热键/拦截必须进清单，否则设置页漏项。主题切换无热键，仅菜单触发。

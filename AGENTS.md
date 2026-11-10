@@ -60,31 +60,27 @@ node_modules 目录下的内容不能修改。
 
 # ！分发与环境处理
 
-三种打包分发方式（桌面版均自带 bun sidecar，差异在公共路由的访问地址）：
-
-1. 桌面版/非部署版（离线版客户端）: web 与 bun 全部在客户端，`/api` 和 `/offline` 都访问本地 sidecar
-2. 桌面版/bun部署版（服务版客户端）: bun 同时存在于客户端与服务器端，`/api` 走远程服务器、`/offline` 仍走本地 sidecar
-3. web版/全量部署版: web 与 bun 各自单独部署到服务器，只能访问服务器的 `/api`（无本地 bun，`/offline` 也不存在）
-
-bun 服务内部两套路由：
-
-- `/offline/...`: 桌面端专属，只在本地 sidecar 形态可用；服务器形态（无令牌）访问一律 404（门控在 `app/plugins/controller.plug.ts`，路由本身恒组合导出，见 `system/generated/routes.ts`）
-- `/api/...`: 本地与服务器均有。
-
-环境判断入口（各模块自查，互不牵扯）：
-
-- src-web: `isTauri` 区分桌面/浏览器；平台细分（Win/mac/Linux）以 Rust `shell_platform` 为准，UA 只兜到首帧解析回来之前；`sidecarToken()` 非空=本地 sidecar 进程已起来且未退出（仅 web 部署版与 dev 为空）；地址与鉴权头统一由 `lib/backend.ts` 给出（`/api` 地址取 `VITE_API_URL`，空=同源）
-- src-bun: `app/common/tauri_sidecar.ts` 的 `config.token` 非空=本地 sidecar 模式（令牌校验与 offline 门控见控制器插件），空=服务器模式
-- src-tauri: 仅 release 模式启动 sidecar 并注入 `TAURI_SIDECAR` 令牌；令牌只在进程就绪后经 `sidecar_token` 下发（dev/web 部署恒为空）
-
-IPC 契约（命令名/事件名）由 `src-tauri` 与 `src-web/lib/tauri` 的常量表两端对齐，`bun run check:ipc` 校验并已在 `scripts/build.ts` 前置为构建闸门。
-
-.env 新增/修改变量后必须重启根 dev 进程：scripts/dev.ts 启动时固定 process.env 传给子进程，子进程 watch 重启不会重读。
-
-跨模块数值耦合：桌面壳最小宽 375（手机档）小于 src-web 移动断点 768——桌面窄窗口会命中 Sheet 抽屉侧栏，属预期能力；调断点/最小宽时同步检查登录页顶栏（40px 拖动条需让位）与标题栏按钮排布。
-
-桌面系统版本基线：
+## 桌面系统版本基线：
 - Windows：Tauri 2 要求 Win10+；贴靠布局浮层仅 Win11 22000+（Rust 端 `IsWindows11OrGreater` 门控，Win10 保持 webview 自绘按钮行为）；WebView2 Evergreen 自动更新，oklch 颜色与 View Transitions 需 Chromium ≥111，旧运行时主题动画自动降级为直接切换
 - macOS：最低 10.15（Tauri 2）；oklch 需 Safari ≥15.4（macOS 12.3+），VT 需 Safari ≥18；更早系统自动走无动画降级路径
 - Linux：取决于发行版 webkitgtk；oklch 需 ≥2.38、VT 需较新版本，缺失即降级；透明圆角窗口在部分合成器上表现不一，发布前实机验证
 
+## 分发方式：
+
+1. 桌面版/离线版: 所有内容都在客户端。
+2. 桌面版/服务版: bun 同时存在于客户端与服务器端。
+3. web版/部署版: web 与 bun 都部署到服务器。
+
+## 环境判断：
+
+### bun中判断：
+tauri：src-tauri\src\sidecar.rs 会传递token到 src-bun\app\common\tauri_sidecar.ts 的 config.token，有token则为tauri环境。
+
+### web中判断：
+tauri：src-web\src\lib\tauri\index.ts 中的 isTauri 为 true 则为tauri环境。
+操作系统：tauri 环境下真源是 Rust 端 shell_platform 命令（std::env::consts::OS 编译期常量，windows/macos/linux/android/ios），lib/tauri 首帧用它校正 isWindowsShell；UA 嗅探只是 invoke 返回前的临时占位。非 tauri（浏览器）只能靠 UA/feature 检测，能力门控优先按特性判断（如 CSS @supports），不要信 UA。
+
+## bun controller 路由按环境区分：
+
+- `/api/...` 不写 sidecar 模式相关逻辑。
+- `/offline/...` 仅写 sidecar 模式相关逻辑，需要校验接口接收到的 tauri token 是否匹配 tauri_sidecar.ts -> config.token。

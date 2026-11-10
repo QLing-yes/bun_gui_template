@@ -14,7 +14,9 @@
   ],
   "devDependencies": {
     "@tauri-apps/cli": "^2",
-    "@types/bun": "latest"
+    "@types/bun": "latest",
+    "png-to-ico": "^3.0.2",
+    "sharp": "^0.35.5"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.12.4",

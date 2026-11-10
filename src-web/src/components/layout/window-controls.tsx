@@ -1,7 +1,7 @@
 // 窗口控制按钮组（最小化/最大化/关闭）：仅桌面端渲染，浏览器返回 null
 // 贴靠布局浮层待 WebView2 WCO 稳定版转正后再接入（web 自绘按钮申报 HTMAXBUTTON 在稳定版无通道）
 
-import { CopyIcon, MinusIcon, SquareIcon, XIcon } from "lucide-react"
+import { AppIcon } from "@/components/icons"
 
 import { IconAction } from "@/components/layout/icon-action"
 import {
@@ -26,23 +26,23 @@ export function WindowControls() {
   return (
     <>
       <IconAction hint="最小化" button={{ onClick: minimizeWindow }}>
-        <MinusIcon className="size-4 shrink-0" />
+        <AppIcon name="minus" size={16} />
       </IconAction>
       <IconAction
         hint={isMaximized ? "还原" : "最大化"}
         button={{ onClick: toggleMaximizeWindow }}
       >
         {isMaximized ? (
-          <CopyIcon className="size-4 shrink-0" />
+          <AppIcon name="copy" size={16} />
         ) : (
-          <SquareIcon className="size-4 shrink-0" />
+          <AppIcon name="square" size={16} />
         )}
       </IconAction>
       <IconAction
         hint="关闭"
         button={{ className: closeBtnClass, onClick: closeWindow }}
       >
-        <XIcon className="size-4 shrink-0" />
+        <AppIcon name="x" size={16} />
       </IconAction>
     </>
   )

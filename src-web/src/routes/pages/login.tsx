@@ -1,11 +1,11 @@
 // 登录页（login-03 风格）：用户名+密码表单；校验预留，任意凭据直接通过
 
-import { ArrowLeftIcon } from "lucide-react"
 import { useRef, useState } from "react"
 import type { RefObject } from "react"
 import { useNavigate } from "react-router"
 
 import { BRAND_NAME, BrandLogo } from "@/components/brand-logo"
+import { AppIcon } from "@/components/icons"
 import { ChromeActions, ChromeGroup } from "@/components/layout/chrome-group"
 import { IconAction } from "@/components/layout/icon-action"
 import { ThemeMenu } from "@/components/layout/theme-menu"
@@ -125,7 +125,7 @@ function LoginBackButton() {
         },
       }}
     >
-      <ArrowLeftIcon className="size-4 shrink-0" />
+      <AppIcon name="arrowLeft" size={16} />
     </IconAction>
   )
 }

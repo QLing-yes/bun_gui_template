@@ -1,7 +1,7 @@
 // 明暗三选项的唯一来源：选项登记表（值/文案/图标）与切换事务（乐观档、动画起点、等动画结束、空转跳过、失败回滚）
 // 标题栏与设置页的控件形态在 components/option-switch，侧栏菜单内嵌同一个控件；新增模式只改本表
 
-import { MonitorIcon, MoonIcon, SunIcon } from "lucide-react"
+import type { AppIconName } from "@/components/icons"
 import { useEffect, useRef, useState } from "react"
 
 import { useTheme, type Theme } from "@/components/theme-provider"
@@ -17,14 +17,14 @@ type ThemeRow = {
   /** 中文文案 */
   label: string
   /** 选项图标 */
-  icon: typeof SunIcon
+  icon: AppIconName
 }
 
 /** 三选项与展示顺序 */
 export const THEME_ROWS: readonly ThemeRow[] = [
-  { value: "light", label: "浅色", icon: SunIcon },
-  { value: "dark", label: "深色", icon: MoonIcon },
-  { value: "system", label: "跟随系统", icon: MonitorIcon },
+  { value: "light", label: "浅色", icon: "sun" },
+  { value: "dark", label: "深色", icon: "moon" },
+  { value: "system", label: "跟随系统", icon: "monitor" },
 ]
 
 /** 游标节点选择器（与 components/option-switch.tsx 的 data-slot 对齐） */

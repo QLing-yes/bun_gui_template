@@ -81,6 +81,8 @@ export const STORAGE_KEYS = {
   ui: "aigc-ui",
   /** zustand 鉴权 store：username */
   auth: "aigc-auth",
+  /** zustand 项目 store：项目/对话/消息全量树 */
+  projects: "aigc-projects",
   /** 明暗偏好，裸字符串值 */
   theme: "theme",
   /** 设置页分栏布局 id（落盘键由本模块补 react-resizable-panels 前缀） */
@@ -97,6 +99,7 @@ export const SETTINGS_LAYOUT_KEY = `react-resizable-panels:${STORAGE_KEYS.settin
 /** 按键的防抖时长：0=即时；未登记走默认；高频连续值由调用方在提交时写一次 */
 const DEBOUNCE_BY_KEY: Record<string, number> = {
   [STORAGE_KEYS.auth]: 0,
+  [STORAGE_KEYS.projects]: 400,
   [STORAGE_KEYS.theme]: 0,
   [STORAGE_KEYS.ui]: 400,
   [SETTINGS_LAYOUT_KEY]: 400,

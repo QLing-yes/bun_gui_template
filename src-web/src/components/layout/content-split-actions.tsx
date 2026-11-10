@@ -1,12 +1,8 @@
 // 内容区分栏的标题栏入口：右栏/底栏收起开关（面板自身不再放入口）
 // 状态与布局层共读 store/content-split；图标反映当前状态，提示文案描述下一次点击的效果
 
-import {
-  PanelBottomCloseIcon,
-  PanelBottomOpenIcon,
-  PanelRightCloseIcon,
-  PanelRightOpenIcon,
-} from "lucide-react"
+import { AppIcon } from "@/components/icons"
+import type { AppIconName } from "@/components/icons"
 import { cn } from "cn"
 
 import { IconAction } from "@/components/layout/icon-action"
@@ -23,16 +19,16 @@ const SIDE_META = {
     label: "右侧栏",
     collapseHint: "收起右侧栏",
     expandHint: "展开右侧栏",
-    openIcon: PanelRightOpenIcon,
-    closeIcon: PanelRightCloseIcon,
+    openIcon: "panelRightOpen",
+    closeIcon: "panelRightClose",
     shortcutId: "content-split-right",
   },
   bottom: {
     label: "底栏",
     collapseHint: "收起底栏",
     expandHint: "展开底栏",
-    openIcon: PanelBottomOpenIcon,
-    closeIcon: PanelBottomCloseIcon,
+    openIcon: "panelBottomOpen",
+    closeIcon: "panelBottomClose",
     shortcutId: "content-split-bottom",
   },
 } satisfies Record<
@@ -45,9 +41,9 @@ const SIDE_META = {
     /** 已收起时下一次点击的提示 */
     expandHint: string
     /** 当前展开的图标 */
-    openIcon: typeof PanelRightOpenIcon
+    openIcon: AppIconName
     /** 当前收起的图标 */
-    closeIcon: typeof PanelRightOpenIcon
+    closeIcon: AppIconName
     /** 快捷键条目 id */
     shortcutId: string
   }
@@ -75,7 +71,7 @@ function SplitAction({ side }: { side: ContentSplitSide }) {
   const hint = auto
     ? `窗口空间不足，${meta.label}已自动收起`
     : `${action}${shortcutHintOf(meta.shortcutId)}`
-  const Icon = off ? meta.closeIcon : meta.openIcon
+  const icon = off ? meta.closeIcon : meta.openIcon
 
   /** 自动收起时点击只提示原因，不覆盖用户的展开设置 */
   const handleClick = () => {
@@ -109,7 +105,7 @@ function SplitAction({ side }: { side: ContentSplitSide }) {
         className: cn(auto && "opacity-50"),
       }}
     >
-      <Icon className="size-4 shrink-0" />
+      <AppIcon name={icon} size={16} />
     </IconAction>
   )
 }
