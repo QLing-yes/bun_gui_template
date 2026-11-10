@@ -83,8 +83,9 @@ fn pump_output<R: std::io::Read + Send + 'static>(stream: R, log: Arc<Mutex<Side
 }
 
 /// 启动本地 bun 服务：令牌与宿主进程号经 `TAURI_SIDECAR` 环境变量一并注入
+/// 由调用方放到独立线程执行：进程创建与日志初始化不占用首帧渲染的主线程
 /// 失败仅记录不中断——本地服务不可用时 /api 仍可走远程服务器
-pub fn spawn_bun_sidecar(app: &tauri::App) {
+pub fn spawn_bun_sidecar(app: &tauri::AppHandle) {
     let Some(dir) = service_dir() else {
         eprintln!("[tauri] 无法解析本地服务目录，跳过本地 bun 服务");
         return;

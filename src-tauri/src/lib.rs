@@ -47,7 +47,11 @@ pub fn run() {
         .manage(SidecarReady::default())
         .setup(|app| {
             #[cfg(all(desktop, not(debug_assertions)))]
-            sidecar::spawn_bun_sidecar(app);
+            {
+                // 本地服务后台线程启动：目录探测、日志初始化、进程创建均不阻塞窗口首帧与前端脚本执行
+                let handle = app.handle().clone();
+                std::thread::spawn(move || sidecar::spawn_bun_sidecar(&handle));
+            }
 
             // 启动不占屏：Windows 先最小化（任务栏就位、不上屏），web 就绪后经 reveal_window 还原聚焦；
             // mac/Linux 对未可见窗口做 miniaturize 行为不确定，维持「隐藏到就绪」达到同样效果

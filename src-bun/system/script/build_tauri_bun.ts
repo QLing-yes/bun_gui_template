@@ -16,10 +16,22 @@ await (async function build_bun() {
         splitting: true,
         // 打包目标为 bun 运行时（使用 Bun/Node 内置模块）
         target: "bun",
-        // JS 包保留了运行时 JIT：AOT 自动 strip 会漏掉运行时才注册的路由（如 OPTIONS），必须显式关闭
-        plugins: [aot(aotEntry, { strip: false })],
+        plugins: [
+            // JS 包保留了运行时 JIT：AOT 自动 strip 会漏掉运行时才注册的路由（如 OPTIONS），必须显式关闭
+            aot(aotEntry, {
+                strip: false
+            })
+        ],
         // 不编译运行时、不生成字节码：运行依赖目标机安装的 bun
         compile: false,
         bytecode: false,
+        // 发布包不需要源码映射：省去约 6MB 的 .map 与文件末尾的 sourceMappingURL
+        // sourcemap: "none",
+        // 关闭函数名保留：去掉每个函数的 __name 包装，缩小体积并加快启动
+        // minify: { keepNames: false },
+        // 移除调试语句
+        // drop: ["debugger"],
+        // 禁止内联环境变量：PORT、令牌等必须在运行期从目标机环境读取
+        // env: "disable",
     });
 })();
