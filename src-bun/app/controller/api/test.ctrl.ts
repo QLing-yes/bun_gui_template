@@ -1,24 +1,10 @@
 import { eq } from "drizzle-orm";
 import { t } from "elysia";
 import { post, user } from "@/app/model";
-import { controller } from "@/app/plugins/index.plug";
 
 export default $g.ctrl((app) =>
   app
     .post("/", () => "ok")
-    // 全部路由
-    .post(
-      "routers",
-      {
-        response: $g.res(t.Array(t.String())),
-      },
-      () => {
-        const list: string[] = controller.routes.map(
-          (item) => `[${item.method}]${item.path}`,
-        );
-        return $g.success(list);
-      },
-    )
     // 测试动态响应类型
     .post(
       "test",
@@ -45,15 +31,15 @@ export default $g.ctrl((app) =>
       return $g.error("errData", 0);
     })
     // 测试响应类型错误
-    .post(
-      "err2",
-      {
-        response: $g.res(t.Object({ a: t.Object({ b: t.String() }) })),
-      },
-      () => {
-        return $g.success({ a: { b: 1 } });
-      },
-    )
+    // .post(
+    //   "err2",
+    //   {
+    //     response: $g.res(t.Object({ a: t.Object({ b: t.String() }) })),
+    //   },
+    //   () => {
+    //     return $g.success({ a: { b: 1 } });
+    //   },
+    // )
     // 抛出错误
     .post("throwErr", () => {
       throw new Error("throwErr");
@@ -77,9 +63,12 @@ export default $g.ctrl((app) =>
     .post(
       "user/create",
       {
+        perm: 100101,
+        title: "创建用户",
+        desc: "创建用户并返回主键",
         body: t.Object({
-          email: t.String({ format: "email" }),
-          name: t.Optional(t.String()),
+          email: t.String({ format: "email", description: "邮箱" }),
+          name: t.Optional(t.String({ description: "用户名" })),
         }),
         response: $g.res(t.Any()),
       },
@@ -90,7 +79,7 @@ export default $g.ctrl((app) =>
     )
 
     /** 查询所有用户 */
-    .get("user/list", { response: $g.res(t.Any()) }, async () => {
+    .get("user/list", { perm: 100102, response: $g.res(t.Any()) }, async () => {
       const rows = await $g.db.query.user.findMany();
       return $g.success(rows);
     })
@@ -98,7 +87,7 @@ export default $g.ctrl((app) =>
     /** 按ID查询用户 */
     .get(
       "user/detail/:id",
-      { response: $g.res(t.Any()) },
+      { perm: 100103, response: $g.res(t.Any()) },
       async ({ params }) => {
         const row = await $g.db.query.user.findFirst({
           where: { id: +params.id },
@@ -114,6 +103,7 @@ export default $g.ctrl((app) =>
     .put(
       "user/update/:id",
       {
+        perm: 100104,
         body: t.Object({
           email: t.Optional(t.String({ format: "email" })),
           name: t.Optional(t.String()),
@@ -135,7 +125,7 @@ export default $g.ctrl((app) =>
     /** 删除用户 */
     .delete(
       "user/delete/:id",
-      { response: $g.res(t.Any()) },
+      { perm: 100105, response: $g.res(t.Any()) },
       async ({ params }) => {
         const [{ affectedRows }] = await $g.db
           .delete(user)

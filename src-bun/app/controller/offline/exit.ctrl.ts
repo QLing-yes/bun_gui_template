@@ -4,6 +4,6 @@ import { exitApp } from "@/app/common/tauri_sidecar";
 export default (app: Ctrl) =>
   app.post("exit", () => {
     // 留出响应回写时间，再走与父进程消失相同的收尾链路（app.stop + 进程退出）
-    void Bun.sleep(100).then(exitApp);
+    void Bun.sleep(1000).then(exitApp);
     return $g.success(null, "bye");
   });
