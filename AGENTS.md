@@ -89,3 +89,14 @@ tauri：src-web\src\lib\tauri\index.ts 中的 isTauri 为 true 则为tauri环境
 
 - `/api/...` 不写桌面本地服务模式相关逻辑。
 - `/offline/...` 仅写桌面本地服务模式相关逻辑（含宿主退出通知 `/offline/exit`），需要校验接口接收到的 tauri token 是否匹配 tauri_sidecar.ts -> config.token。
+
+## 传递的tauri环境变量
+
+只有桌面 release 会有这份注入（Rust 拉起 bun 时写入子进程环境）；dev、web 部署、Android/iOS 都没有本地服务进程，不存在注入。
+
+- `TAURI_SIDECAR`：唯一注入项，值为 JSON `{"token":"…","pid":123}`，由 src-tauri\src\sidecar.rs 用 serde_json 序列化后 `.env()` 写入。
+  - `token`：桌面取系统设备码（src-tauri\src\lib.rs 的 `app_token()`，machine-uid 提供 Windows SMBIOS UUID / macOS IOPlatformUUID / Linux machine-id，失败或移动端回落 48 位随机）；debug 构建恒为空串，服务端见空串即跳过校验。
+  - `pid`：宿主 Tauri 进程号，供 src-bun\app\common\tauri_sidecar.ts 探活；cluster 拉起 worker 时改写为集群父进程号，worker 只看主进程。
+- 退出回传：`/offline/exit` 的 `x-tauri-token` 头携带同一个 token，服务端与 `config.token` 比对。
+- `NODE_ENV`：非 Tauri 注入。dev 由 scripts\dev.ts 置为 `development`，打包产物由 Bun.build 的 `define` 固化为 `production`（脚本内是带引号的 `'"production"'`）。
+- `PORT`：非 Tauri 注入。桌面端 Rust 按「进程环境 → 服务目录 .env（bun 运行时自动加载同一份）→ 3000」取值，仅用于拼退出请求地址。
