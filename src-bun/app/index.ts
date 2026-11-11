@@ -1,7 +1,17 @@
 import "@/app/common/init-global";
-import { Elysia } from "elysia";
+import { Elysia, inAotBuild } from "elysia";
 import plugins from "@/app/plugins/index.plug";
-import { exitApp, onExit, watchParentExit } from "@/app/common/tauri_sidecar";
+import { config, exitApp, onExit, watchParentExit } from "@/app/common/tauri_sidecar";
+
+/** 当前运行环境：构建期 NODE_ENV 被固化为 production，源码运行未设置则为 development */
+const ENV_NAME = process.env.NODE_ENV === "production" ? "production" : "development";
+
+// 启动即声明运行信息；AOT 构建期会 dry-run 执行本入口，跳过避免误报（token 非空=由 tauri 宿主拉起，bun 侧唯一的 tauri 判据）
+if (!inAotBuild()) {
+    console.info(
+        `[bun] 环境：${ENV_NAME}；tauri：${Boolean(config.token)}；当前平台：${process.platform}`,
+    );
+}
 
 export const app = new Elysia({
     // 在服务器启动前预编译所有路由，大幅降低首次请求的延迟

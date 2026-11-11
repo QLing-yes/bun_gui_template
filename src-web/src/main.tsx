@@ -11,9 +11,15 @@ import { Toaster, toast } from "@/components/ui/toast.tsx"
 import { TooltipProvider } from "@/components/ui/tooltip.tsx"
 import { mountLayerInspector } from "@/dev/layer-inspector.ts"
 import { readText, writeText } from "@/lib/storage"
-import { onSidecarTerminated } from "@/lib/tauri"
+import { isTauri, onSidecarTerminated, shellPlatform } from "@/lib/tauri"
 import { router } from "@/routes/router.tsx"
 import { installWebviewGuards } from "@/shortcuts/webview.ts"
+
+// 启动即声明运行信息：环境取 Vite 编译期常量，tauri 是否为 Tauri 宿主，平台取 Rust 真源（浏览器回落 UA）
+void shellPlatform().then((platform) => {
+  const env = import.meta.env.DEV ? "development" : "production"
+  console.info(`[web] 环境：${env}；tauri：${isTauri}；当前平台：${platform}`)
+})
 
 // 安装 WebView 全局输入守卫（桌面：右键/刷新/F11；两端：文件拖入拦截）
 installWebviewGuards()

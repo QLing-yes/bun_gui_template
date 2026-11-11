@@ -78,16 +78,36 @@ function applyNativeTheme(): void {
   void appWindow?.setTheme(theme).catch(() => {})
 }
 
+/** 浏览器平台识别：仅非 tauri 兜底，能力门控仍按特性判断
+ * @returns 平台标识（windows/macos/linux/android/ios） */
+function browserPlatform(): string {
+  const ua = navigator.userAgent
+  if (/Android/i.test(ua)) return "android"
+  if (/iPhone|iPad|iPod/i.test(ua)) return "ios"
+  if (/Mac/i.test(ua)) return "macos"
+  if (/Linux/i.test(ua)) return "linux"
+  return "windows"
+}
+
+/** 平台真源：tauri 取 Rust 编译期常量，浏览器回落 UA（进程内只解析一次） */
+const platformPromise: Promise<string> = isTauri
+  ? invoke<string>(IPC.shellPlatform).catch(browserPlatform)
+  : Promise.resolve(browserPlatform())
+
+/** 当前运行平台
+ * @returns 平台标识（windows/macos/linux/android/ios） */
+export function shellPlatform(): Promise<string> {
+  return platformPromise
+}
+
 // 平台真源是 Rust cfg（UA 只兜到首帧解析回来之前）；纠正后按最近一次请求补同步一次
 if (isTauri) {
-  invoke<string>(IPC.shellPlatform)
-    .then((os) => {
-      const windows = os === "windows"
-      if (windows === isWindowsShell) return
-      isWindowsShell = windows
-      if (windows) applyNativeTheme()
-    })
-    .catch(() => {})
+  void platformPromise.then((os) => {
+    const windows = os === "windows"
+    if (windows === isWindowsShell) return
+    isWindowsShell = windows
+    if (windows) applyNativeTheme()
+  })
 }
 
 /** 同步窗口原生明暗（非 Windows / 浏览器为 no-op）

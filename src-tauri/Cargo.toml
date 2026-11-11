@@ -26,6 +26,10 @@ ureq = { version = "2", default-features = false }
 dotenvy = "0.15"
 # 终端日志文件名按本地日期分天
 chrono = "0.4"
+# 设备码：Windows 取 SMBIOS UUID、macOS 取 IOPlatformUUID、Linux 取 machine-id（重启/重装不变）
+machine-uid = "0.6"
+# TAURI_SIDECAR 凭证 JSON 序列化：设备码可能含特殊字符，不手拼字符串
+serde_json = "1"
 
 # devtools 只能按 cargo feature 开关（cfg(debug_assertions) 不能用于选择依赖，cargo 会告警并失效）
 # dev 由 scripts/dev.ts 传 `--features devtools`，release 不带 → 包体不含 DevTools

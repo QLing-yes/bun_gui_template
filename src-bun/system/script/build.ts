@@ -67,8 +67,8 @@ export async function build(
 
     // 构建时常量注入
     define: {
-      // 注入生产环境标识：代码中 process.env.NODE_ENV 会被直接替换为 "production"
-      "process.env.NODE_ENV": "production",
+      // 注入生产环境标识：代码中 process.env.NODE_ENV 会被直接替换为字符串字面量 "production"（必须带引号）
+      "process.env.NODE_ENV": '"production"',
     },
   }, config);
 

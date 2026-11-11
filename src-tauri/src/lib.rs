@@ -12,6 +12,19 @@ use tauri::Manager;
 #[cfg(not(debug_assertions))]
 use rand::distr::{Alphanumeric, SampleString};
 
+/// 本地服务令牌：桌面取系统设备码（重启、重装系统均不变），取不到或移动端回落本次随机串
+/// 移动端没有本地服务、令牌不参与校验；随机回落保证任何平台都能构造出非空令牌
+#[cfg(not(debug_assertions))]
+fn app_token() -> String {
+    #[cfg(desktop)]
+    if let Ok(uid) = machine_uid::get() {
+        if !uid.trim().is_empty() {
+            return uid;
+        }
+    }
+    Alphanumeric.sample_string(&mut rand::rng(), 48)
+}
+
 /// 窗口就位三件套：还原最小化 → 显示 → 取焦（幂等，供就绪信号、二次启动与超时兜底共用）
 pub(crate) fn present_window(window: &tauri::WebviewWindow) {
     let _ = window.unminimize();
@@ -21,9 +34,9 @@ pub(crate) fn present_window(window: &tauri::WebviewWindow) {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    // 本地服务访问令牌：release 随机生成 48 位，开发模式为空串（服务端随之跳过校验；IPC 契约名沿用 sidecar_token）
+    // 本地服务访问令牌：桌面取系统设备码（移动端/取不到时随机），开发模式为空串（服务端随之跳过校验；IPC 契约名沿用 sidecar_token）
     #[cfg(not(debug_assertions))]
-    let token = Alphanumeric.sample_string(&mut rand::rng(), 48);
+    let token = app_token();
     #[cfg(debug_assertions)]
     let token = String::new();
 

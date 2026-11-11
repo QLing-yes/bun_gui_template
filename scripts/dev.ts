@@ -6,7 +6,11 @@ const root = process.cwd();
 // --------------------------------- 流程 ---------------------------------
 
 await build_config()
-await Promise.all([dev_bun(), dev_web(), dev_tauri()])
+await Promise.all([
+    dev_bun(),
+    dev_web(),
+    dev_tauri()
+])
 
 // --------------------------------- 启动函数 ---------------------------------
 

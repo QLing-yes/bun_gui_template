@@ -103,9 +103,11 @@ pub fn spawn_bun_sidecar(app: &tauri::AppHandle) {
     let pid = std::process::id();
 
     let mut cmd = Command::new(bun_bin(&dir));
+    // 凭证 JSON 交给序列化器：设备码可能含引号/反斜杠，手拼会破坏格式
+    let credentials = serde_json::json!({ "token": token, "pid": pid }).to_string();
     cmd.arg(&entry)
         .current_dir(&dir)
-        .env("TAURI_SIDECAR", format!(r#"{{"token":"{token}","pid":{pid}}}"#))
+        .env("TAURI_SIDECAR", credentials)
         // stdin 管道随监控线程持有：Tauri 进程结束时写端被系统关闭，服务侧 watchParentExit 兜底退出
         .stdin(Stdio::piped())
         // 输出改为管道，由 pump_output 逐行写终端日志
