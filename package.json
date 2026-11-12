@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "bun run ./scripts/dev.ts",
-    "build": "bun run ./scripts/build.ts",
+    "build:desktop": "bun run ./scripts/build.ts",
     "build:android": "bun run ./scripts/build.ts android",
     "build:ios": "bun run ./scripts/build.ts ios",
     "check:ipc": "bun run ./scripts/check_ipc.ts"

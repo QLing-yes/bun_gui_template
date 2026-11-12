@@ -1,3 +1,3 @@
 // auto generated
-export { schema as post_schema } from "app/model/post.mold.ts";
-export { schema as user_schema } from "app/model/user.mold.ts";
+export { schema as schema_mysql_post } from "app/model/mysql/post.mold.ts";
+export { schema as schema_mysql_user } from "app/model/mysql/user.mold.ts";

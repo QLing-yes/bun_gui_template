@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { t } from "elysia";
-import { post, user } from "@/app/model";
+import { post, user } from "@/app/model/mysql";
 
 export default $g.ctrl((app) =>
   app
@@ -73,14 +73,14 @@ export default $g.ctrl((app) =>
         response: $g.res(t.Any()),
       },
       async ({ body }) => {
-        const row = await $g.db.insert(user).values(body).$returningId();
+        const row = await $g.mysql.insert(user).values(body).$returningId();
         return $g.success(row);
       },
     )
 
     /** 查询所有用户 */
     .get("user/list", { perm: 100102, response: $g.res(t.Any()) }, async () => {
-      const rows = await $g.db.query.user.findMany();
+      const rows = await $g.mysql.query.user.findMany();
       return $g.success(rows);
     })
 
@@ -89,7 +89,7 @@ export default $g.ctrl((app) =>
       "user/detail/:id",
       { perm: 100103, response: $g.res(t.Any()) },
       async ({ params }) => {
-        const row = await $g.db.query.user.findFirst({
+        const row = await $g.mysql.query.user.findFirst({
           where: { id: +params.id },
         });
         if (!row) {
@@ -111,7 +111,7 @@ export default $g.ctrl((app) =>
         response: $g.res(t.Any()),
       },
       async ({ params, body }) => {
-        const [{ affectedRows }] = await $g.db
+        const [{ affectedRows }] = await $g.mysql
           .update(user)
           .set(body)
           .where(eq(user.id, +params.id));
@@ -127,7 +127,7 @@ export default $g.ctrl((app) =>
       "user/delete/:id",
       { perm: 100105, response: $g.res(t.Any()) },
       async ({ params }) => {
-        const [{ affectedRows }] = await $g.db
+        const [{ affectedRows }] = await $g.mysql
           .delete(user)
           .where(eq(user.id, +params.id));
         if (affectedRows === 0) {
@@ -150,14 +150,14 @@ export default $g.ctrl((app) =>
         response: $g.res(t.Any()),
       },
       async ({ body }) => {
-        const row = await $g.db.insert(post).values(body).$returningId();
+        const row = await $g.mysql.insert(post).values(body).$returningId();
         return $g.success(row);
       },
     )
 
     /** 查询所有文章（含作者信息） */
     .get("post/list", { response: $g.res(t.Any()) }, async () => {
-      const rows = await $g.db.query.post.findMany({
+      const rows = await $g.mysql.query.post.findMany({
         with: { author: true },
       });
       return $g.success(rows);

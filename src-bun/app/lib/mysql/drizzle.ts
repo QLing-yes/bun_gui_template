@@ -1,11 +1,11 @@
 import { drizzle as orm } from "drizzle-orm/mysql2";
 import mysql from "mysql2/promise";
 import { logger } from "@/app/lib/logger";
-import { relations } from "@/app/model/relations";
+import { relations } from "@/app/model/mysql/relations";
 import { inAotBuild } from "elysia";
 
 const pool = mysql.createPool({
-  uri: process.env.DATABASE_URL!,
+  uri: process.env.MYSQL_DATABASE_URL!,
   waitForConnections: true,
   connectionLimit: 10,
 });

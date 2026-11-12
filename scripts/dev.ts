@@ -9,8 +9,9 @@ await build_config()
 await Promise.all([
     dev_bun(),
     dev_web(),
+    dev_tauri()
 ])
-await dev_tauri()
+
 // --------------------------------- 启动函数 ---------------------------------
 
 function build_config() {

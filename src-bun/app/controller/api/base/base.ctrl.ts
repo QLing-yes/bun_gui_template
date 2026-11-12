@@ -14,14 +14,16 @@ export default (app: Ctrl) =>
         .post(
             "/all_perm",
             {
-                title: "获取所有权限路由",
-                res: t.Array(t.Number())
+                title: "获取所有权限路由列表",
+                /** 权限编号 → 路由签名 */
+                res: t.Record(t.Number(), t.String())
             },
             async () => {
                 const { permRoutes } = await collectPermRoutes();
                 /** 权限编号 + 路由签名，Map 需展开后遍历 */
-                const permList = [...permRoutes].map(
-                    ([code]) => code,
-                );
-                return $g.success(permList)
+                const perm_route = {} as Record<number, string>;
+                [...permRoutes].map(([code, path]) => {
+                    perm_route[code] = path;
+                });
+                return $g.success(perm_route)
             })

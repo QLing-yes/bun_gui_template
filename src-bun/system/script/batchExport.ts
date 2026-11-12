@@ -25,12 +25,16 @@ export default function generate(conf: Partial<typeof confing>) {
 
   const content = filePaths.list
     .map((path) => {
-      const name = path.split("/").at(-1)!
-        .replace(suffix_reg, "");
+      // 相对 root 路径去掉后缀、用 _ 替换分隔符，始终唯一
+      const name = path
+        .slice(op.root.length)
+        .replace(/^\//, "")
+        .replace(suffix_reg, "")
+        .replaceAll("/", "_");
 
       return op.template
         .replace(/{{path}}/g, path)
-        .replace(/{{name}}/g, name)
+        .replace(/{{name}}/g, name);
     })
     .join("\n");
 
