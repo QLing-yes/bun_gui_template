@@ -18,9 +18,10 @@ Project/
 │   │   └── schemas.ts        # 数据模型 (这里导出的模型都将使用`elysia.model()`注册)
 │   │   └── schemaDerive.ts   # 数据模型的派生类型和方法
 │   ├── controller/           # 控制器层（目录即路由前缀，`ctrl.ts` 结尾自动注册）
-│   │   ├── api/              # /api（chat、title、base）
-│   │   ├── test/             # /test（框架响应测试 + mysql/postgresql/sqlite 方言测试）
-│   │   └── offline/          # /offline（桌面专属，令牌校验）
+│   │   ├── api/              # /api（公共路由）
+│   │   ├── system/           # /system（本系统专用）
+│   │   ├── test/             # /test（测试用）
+│   │   └── offline/          # /offline（桌面专属）
 │   ├── lib/
 │   │   ├── error.ts          # 进程异常事件捕获记录 (同步模式)
 │   │   ├── logger.ts         # 日志库 (默认异步模式)
@@ -46,7 +47,7 @@ Project/
 │   └── cluster.ts            # 单机多进程集群模式入口（仅Linux生效）
 │   └── index.ts              # 应用入口
 ├── logs/
-├── test/                     # Eden 测试目录
+├── data/                     # 运行期数据（SQLite 库文件，路径取 SQLITE_DATABASE_PATH）
 ├── system/                  # 辅助脚本与派生产物
 │   ├── script/
 │   │   ├── index.ts          # 生成脚本

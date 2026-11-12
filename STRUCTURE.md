@@ -131,12 +131,12 @@ lib/：
 
 - `app/index.ts` — 应用组装入口（AOT 指向）；`app/cluster.ts` — 进程管理入口（宿主启动它，集群 worker 跑同目录 `index.js`）
 - `app/common/` — `index.ts`（`$g` 聚合导出：mysql/pg/sqlite ORM、redis、logger、res/ctrl/success/error/counter，生成的 routes.ts 以此消费）、`tauri_sidecar.ts`（桌面令牌/宿主 PID 配置，token 非空=本地模式）、schemas/schemaDerive/init-global
-- `app/controller/api/` — 公共路由 `/api/**`（chat 流式对话、title AI 命名——同一 env 模型配置；`withProject=true`（新建项目）一次返回项目名+对话名两个字段，否则只返回对话名；JSON 宽容解析、坏值降级同值双名；base 提供 `/ready` 与 `/all_perm`）；`app/controller/test/` — 测试路由 `/test/**`（框架响应/异常测试 + mysql/postgresql/sqlite 三方言的建用户、建文章、关系查询）；`app/controller/offline/` — 桌面专属 `/offline/**`（服务器形态按令牌一律 404，门控在 `app/plugins/controller.plug.ts`；`exit` 供宿主退出时通知停服并退出（与父进程消失共用 `exitApp`，只执行一次））
+- `app/controller/api/` — 公共路由 `/api/**`（chat、title）；`app/controller/system/` — 本系统专用 `/system/**`（服务自检：ready 就绪探针、all_perm 权限编号→路由签名）；`app/controller/test/` — 测试路由 `/test/**`（框架响应测试 + mysql/postgresql/sqlite 方言测试）；`app/controller/offline/` — 桌面专属 `/offline/**`（服务器形态一律 404，门控在 `app/plugins/controller.plug.ts`）
 - `app/lib/` — mysql/index、postgresql/index、sqlite/index（各方言连接，均为 `client` 具名导出 + 默认导出；mysql 用 mysql2 池 / postgresql 用 Bun.SQL / sqlite 用 bun:sqlite）/ redis/index（客户端）/ logger / error；`app/model/` — 按方言分目录（mysql/postgresql/sqlite，各含 `db.ts` + `relations.ts` + `*.mold.ts`）+ `describe.ts`（字段描述注册表，`description(table)` 自动取表名并注入 OpenAPI），经 `$g.mysql` / `$g.pg` / `$g.sqlite` 使用
-- `app/plugins/` — 控制器注册 / macro / schema 插件；`app/utils/` — file / watch / menu-ui 通用工具 + `index.ts` 聚合导出
+- `app/plugins/` — 控制器注册 / macro / schema 插件；`app/utils/` — file / watch / menu-ui / mergeDeep 通用工具
 - `drizzle.config.<方言>.ts` — 每方言一份 drizzle-kit 迁移配置（mysql/postgresql/sqlite；schema 指 `app/model/<方言>/**/*.mold.ts`，产物落 `system/generated/drizzle/<方言>`，SQLite 仅取 `SQLITE_DATABASE_PATH` 无默认）；迁移命令用 `--config` 指定方言
 - `system/script/` — `index.ts`（dev 生成入口：串起 routes/batchExport/genApiTypes，并指定 gen-api 输出到 src-web）/ build / build_tauri_bun（产出本地服务 JS 产物，不内嵌运行时）/ genApiTypes（产出声明式 API 类型树）/ routes（顶层路由前缀全部组合导出，漏导出=该前缀不可达）/ menu / batchExport（按 `.mold.ts` 生成 `system/generated/model/schema.ts` 与 `system/generated/model/<方言>/index.ts` 表聚合）；`system/types/global.d.ts` — `$g` 全局声明（genApiTypes 显式纳入）；`system/generated/` — 全部派生产物（勿手改，按用途分目录）：`routes.ts`（路由聚合）/ `model/schema.ts`（elysia 模型注册表）/ `model/<方言>/index.ts`（表聚合）/ `drizzle/<方言>/`（迁移产物）
-- `public/` — 服务静态资源；`logs/` — 运行日志
+- `public/` — 服务静态资源；`logs/` — 运行日志；`data/` — 运行期数据目录（SQLite 库文件，路径取 `SQLITE_DATABASE_PATH`）
 - 产物树 `dist/`：主程序 `aigc.exe` 在根，服务相关全部在 `bun/` —— 入口 `cluster.js`（宿主启动的进程管理入口）+ `index.js`（AOT 应用入口 / 集群 worker 入口）+ `chunk-*.js`（代码分割共享块）+ `.env` + `public/` + 随包运行时 `bun.exe`/`bun`（构建期从构建机复制，运行期优先使用、缺失才回落 PATH），入口各带 linked `.map`；纯 JS 打包不编译运行时，由 Rust 以该目录为 CWD 启动
 
 ## src-tauri/（Tauri v2，Rust 桌面壳）
