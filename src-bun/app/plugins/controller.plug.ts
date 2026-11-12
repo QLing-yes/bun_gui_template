@@ -4,6 +4,7 @@ import * as $c from "@/app/common";
 import { logger } from "@/app/lib/logger";
 import plug_macro from "@/app/plugins/macro.plug";
 import plug_schemas from "@/app/plugins/schemas.plug";
+import plug_auth from "@/app/plugins/auth.plug";
 import { config as tauri_config } from "@/app/common/tauri_sidecar";
 
 /** 控制器插件 */
@@ -40,6 +41,8 @@ export default new Elysia({ name: String($g.counter.n) })
     set.status = 401;
     return $c.error("Unauthorized");
   })
+  /** 登录态与接口权限校验（路由未声明 perm 编号即公开） */
+  .use(plug_auth)
   // .afterResponse(({ set, request, ...p }) => {
   // 	logger.info(`[response] ${request.method} ${p.route || p.path} ${set.status}`);
   // })
