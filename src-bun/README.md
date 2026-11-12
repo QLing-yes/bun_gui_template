@@ -7,6 +7,7 @@
 
 ## 项目结构
 - 全自动路由、日志系统、ORM、端到端类型安全，更多功能即将推出
+- 你配置好一切到达理想状态时，只需关注 `controller` 即可
 
 ```
 Project/
@@ -16,19 +17,26 @@ Project/
 │   │   └── index.ts          # 全局模块 (注册到全局`$g`, 仅`controller`中使用)
 │   │   └── schemas.ts        # 数据模型 (这里导出的模型都将使用`elysia.model()`注册)
 │   │   └── schemaDerive.ts   # 数据模型的派生类型和方法
-│   ├── controller/           # 控制器层 (自动注册`ctrl.ts`结尾的文件为路由，自动更新)
+│   ├── controller/           # 控制器层（目录即路由前缀，`ctrl.ts` 结尾自动注册）
+│   │   ├── api/              # /api（chat、title、base）
+│   │   ├── test/             # /test（框架响应测试 + mysql/postgresql/sqlite 方言测试）
+│   │   └── offline/          # /offline（桌面专属，令牌校验）
 │   ├── lib/
 │   │   ├── error.ts          # 进程异常事件捕获记录 (同步模式)
 │   │   ├── logger.ts         # 日志库 (默认异步模式)
 │   │   ├── mysql/
-│   │   │   └── index.ts      # MySQL 连接池
+│   │   │   └── index.ts      # MySQL 连接池 (mysql2)
+│   │   ├── postgresql/
+│   │   │   └── index.ts      # PostgreSQL 连接池 (Bun.SQL)
+│   │   ├── sqlite/
+│   │   │   └── index.ts      # SQLite 连接 (bun:sqlite)
 │   │   └── redis/
 │   │       └── index.ts      # Redis 客户端
-│   ├── model/                # Drizzle 数据模型目录 (`.mold.ts`结尾的文件内导出的具名`schema`将自动使用`elysia.model()`注册)
-│   │   └── mysql/
-│   │       ├── db.ts         # Drizzle 实例（绑定表关系）
-│   │       ├── relations.ts  # 表关系
-│   │       └── *.mold.ts     # 表定义（表聚合与模型注册表生成到 system/generated/model/）
+│   ├── model/                # Drizzle 数据模型目录（按方言分目录，`.mold.ts` 导出的`schema`自动注册）
+│   │   ├── describe.ts       # 字段描述注册表（`description(table)` 注入 OpenAPI）
+│   │   ├── mysql/            # db.ts / relations.ts / *.mold.ts
+│   │   ├── postgresql/       # db.ts / relations.ts / *.mold.ts
+│   │   └── sqlite/           # db.ts / relations.ts / *.mold.ts
 │   ├── plugins/
 │   │   ├── index.plug.ts     # 全局插件
 │   │   └── macro.plug.ts     # 宏插件
@@ -45,9 +53,9 @@ Project/
 │   │   ├── menu.ts           # 交互式命令菜单
 │   │   ├── routes.ts         # 路由 生成工具
 │   │   └── batchExport.ts    # 批量导出文件 生成工具
-│   └── generated/            # 派生产物（勿手改）：routes.ts、model/schema.ts、model/<方言>/index.ts
+│   └── generated/            # 派生产物（勿手改）：routes.ts、model/schema.ts、model/<方言>/index.ts、drizzle/<方言>/
 |── .env                      # 配置文件
-|── drizzle.config.ts         # drizzle 配置
+|── drizzle.config.<方言>.ts  # drizzle 迁移配置（每方言一份：mysql / postgresql / sqlite）
 ...
 ```
 
@@ -56,6 +64,23 @@ Project/
 1. **检查数据库配置** — 确认 [.env](.env) 中的数据库连接信息是否正确
 2. **确认数据模型** — 检查 [app/model](app/model) 中的模型定义是否符合需求
 3. **同步到数据库** — 运行 `bun run db:generate` 生成迁移文件，再运行 `bun run db:migrate` 执行
+
+> 多数据库（已内置 mysql / postgresql / sqlite 最简示例 user/post）：运行时每种方言在 `app/lib/<方言>` 各自建连，分别读自己的连接串（`MYSQL_DATABASE_URL` / `PG_DATABASE_URL` / `SQLITE_DATABASE_PATH`），不要合并成一个变量；SQLite 路径**没有默认值**，必须由 `SQLITE_DATABASE_PATH` 提供（如 `./data/sqlite/app.db`）。迁移侧 drizzle-kit 每种方言一份 `drizzle.config.<方言>.ts`（schema 指向 `app/model/<方言>`，产物在 `system/generated/drizzle/<方言>`），用 `bun run db:generate:postgresql` / `bun run db:generate:sqlite`（mysql 为默认的 `db:generate`）指定方言。新增方言只需建 `app/model/<方言>` 与对应 config，表聚合会自动生成。
+
+## 环境变量
+
+- 统一放在仓库根目录 `.env`（mysql / PostgreSQL / SQLite / Redis / AI 配置）。
+- bun 只自动加载**当前工作目录**的 `.env`；从 `src-bun` 直接启动时用 `bun --env-file=../.env run dev`，或把 `.env` 放到 `src-bun`。
+- Tauri 桌面打包态由服务目录 `dist/bun/.env` 提供，无需额外参数。
+
+## 测试接口
+
+| 方法 | 路径 | 说明 |
+|---|---|---|
+| POST | `/test/{mysql,postgresql,sqlite}/user` | 创建用户 |
+| POST | `/test/{mysql,postgresql,sqlite}/post` | 创建文章（authorId 关联用户） |
+| GET | `/test/{mysql,postgresql,sqlite}/user` | 用户及文章列表（验证关系） |
+| POST | `/test/*` | 框架响应 / 异常测试 |
 
 ## 快速开始
 
@@ -79,6 +104,7 @@ bun run gen:watch # 同上，持续监听变更（dev 已内置）
 bun run db:generate # 仅生成迁移文件
 bun run db:migrate  # 执行已生成的迁移
 bun run db:studio   # drizzle 可视化
+# 其它方言：在上述命令后加 :postgresql 或 :sqlite，如 bun run db:generate:sqlite
 
 ```
 - `bun run menu --list` 列出所有选项

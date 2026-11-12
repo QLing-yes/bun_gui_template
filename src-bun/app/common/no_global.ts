@@ -1,4 +1,4 @@
-// 这里放一些不能进入全局“$g”的公共代码
+// 这里放一些不能进入全局“$g”的公共代码（因为加入到 “$g" 会导致循环引用或未定义报错）
 
 import { routes_ctrl } from "@/app/plugins/index.plug";
 

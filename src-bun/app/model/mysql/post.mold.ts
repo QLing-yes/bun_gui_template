@@ -6,7 +6,7 @@ import {
   text,
   varchar,
 } from "drizzle-orm/mysql-core";
-import { createInsertSchema } from "drizzle-orm/typebox";
+import { description } from "@/app/model/describe";
 
 export const table = mysqlTable("post", {
   id: serial().primaryKey(),
@@ -16,4 +16,4 @@ export const table = mysqlTable("post", {
   authorId: int("author_id").notNull(),
 });
 
-export const schema = createInsertSchema(table);
+export const schema = description(table);

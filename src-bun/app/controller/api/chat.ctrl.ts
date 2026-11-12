@@ -14,6 +14,7 @@ export default $g.ctrl((app) =>
   app.post(
     "chat",
     {
+      title: "AI 对话（流式响应）",
       body: t.Object({ messages: t.Array(t.Any()) }),
     },
     async ({ body, request }) => {

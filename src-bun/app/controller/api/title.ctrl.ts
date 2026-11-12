@@ -27,6 +27,7 @@ export default $g.ctrl((app) =>
   app.post(
     "title",
     {
+      title: "AI 生成对话/项目标题",
       body: t.Object({
         messages: t.Array(t.Any()),
         withProject: t.Optional(t.Boolean()),

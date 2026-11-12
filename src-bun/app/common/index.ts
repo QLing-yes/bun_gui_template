@@ -4,6 +4,8 @@ import type { ResType } from "./schemaDerive";
 export { logger } from "@/app/lib/logger";
 export { client as redis } from "@/app/lib/redis";
 export { db as mysql } from "@/app/model/mysql/db";
+export { db as pg } from "@/app/model/postgresql/db";
+export { db as sqlite } from "@/app/model/sqlite/db";
 export { ResSchemaFun as res } from "./schemaDerive";
 
 /** 控制器工厂 */

@@ -145,12 +145,16 @@
 
 ## 8. 服务端与同步现状
 
-- 服务端数据库：MySQL，经 `drizzle-orm/mysql2` 连接（`src-bun/app/lib/drizzle.ts`，连接串取 `DATABASE_URL`，连接池上限 10；AOT 构建 dry-run 不建真实连接）。
-- 当前存在的表（`src-bun/app/model/`）：
-  - `user`：`id`（serial 主键）、`email`（varchar 255，非空、唯一）、`name`（varchar 255，可空）。
-  - `post`：`id`（serial 主键）、`title`（varchar 255，非空）、`content`（text）、`published`（boolean，非空、默认 false）、`author_id`（int，非空）。
-  - 关系（`relations.ts`）：`user.posts` 一对多、`post.author` 多对一。
-  - `system/generated/model/schema.ts` 仅导出 `post`/`user` 的 insert schema，供请求校验。
+- 服务端数据库：MySQL / PostgreSQL / SQLite 三方言并存，按方言分目录隔离，均惰性连接（AOT 构建 dry-run 不建真实连接）。
+  - MySQL：`drizzle-orm/mysql2`，连接池在 `src-bun/app/lib/mysql/index.ts`，读 `MYSQL_DATABASE_URL` / `MYSQL_DATABASE_POOL_LIMIT`。
+  - PostgreSQL：`drizzle-orm/bun-sql`（Bun.SQL），连接在 `src-bun/app/lib/postgresql/index.ts`，读 `PG_DATABASE_URL` / `PG_DATABASE_POOL_LIMIT`。
+  - SQLite：`drizzle-orm/bun-sqlite`（bun:sqlite），连接在 `src-bun/app/lib/sqlite/index.ts`，路径仅取 `SQLITE_DATABASE_PATH`（无默认值）；开 WAL + `synchronous=NORMAL` + `busy_timeout=5000`。
+- 当前存在的表（`src-bun/app/model/<方言>/`，三方言结构一致）：
+  - `user`：`id`（自增主键）、`email`（255，非空、唯一）、`name`（255，可空）。
+  - `post`：`id`（自增主键）、`title`（255，非空）、`content`（文本）、`published`（布尔，非空、默认 false）、`author_id`（外键值，非空）。
+  - 关系（各方言 `relations.ts`）：`user.posts` 一对多、`post.author` 多对一。
+  - `system/generated/model/schema.ts` 按 `schema_<方言>_<表>` 命名导出 insert schema（如 `schema_mysql_user`），供请求校验与 OpenAPI 引用。
+  - 字段描述集中在 `src-bun/app/model/describe.ts`，经 `description(table)` 注入 OpenAPI（只作文档，不影响校验与数据库）。
 - Redis：`src-bun/app/lib/redis/index.ts` 按 `REDIS_URL` 惰性连接；`.env` 默认未启用，当前不承载任何业务持久化表。
 - 聊天：流式、无状态，不落消息/会话表（此处的「会话」指 HTTP 登录会话/会话 Cookie，属规划态鉴权概念，与 `/chat` 页内存中的对话消息无关）。
 - **同步与对象存储尚未实现**：

@@ -1,5 +1,5 @@
 import { mysqlTable, serial, varchar } from "drizzle-orm/mysql-core";
-import { createInsertSchema } from "drizzle-orm/typebox";
+import { description } from "@/app/model/describe";
 
 export const table = mysqlTable("user", {
   id: serial().primaryKey(),
@@ -7,4 +7,4 @@ export const table = mysqlTable("user", {
   name: varchar({ length: 255 }),
 });
 
-export const schema = createInsertSchema(table);
+export const schema = description(table);

@@ -8,13 +8,73 @@
  *   bun menu.ts --list           列出所有可执行项
  */
 
+import { join } from "node:path";
 import { entry, execCmd, type MenuItem } from "@/app/utils/menu-ui.ts";
 import { build as bunBuild, main } from "./build.ts";
-import { join } from "node:path";
 
 const build = (target: Bun.Build.CompileTarget) => {
-  return bunBuild({ compile: { target, outfile: join(process.cwd(), `./dist/${target}`) } });
-}
+  return bunBuild({
+    compile: { target, outfile: join(process.cwd(), `./dist/${target}`) },
+  });
+};
+
+/** 迁移菜单覆盖的方言（对应 drizzle.config.<方言>.ts） */
+const DIALECTS = ["mysql", "postgresql", "sqlite"];
+
+/** 构造 drizzle-kit 命令 */
+const drizzleKit = (cmd: string, dialect: string) =>
+  `bun --bun run drizzle-kit ${cmd} --config=./drizzle.config.${dialect}.ts`;
+
+/** 单方言的 drizzle 菜单 */
+const drizzleMenu = (dialect: string): MenuItem => ({
+  name: dialect,
+  remark: dialect === "mysql" ? "MySQL（默认）" : dialect,
+  children: [
+    {
+      name: "studio",
+      remark: "✅ 数据库可视化管理",
+      fun: () => execCmd(drizzleKit("studio", dialect)),
+    },
+    {
+      name: "generate",
+      remark: "✅ 仅生成迁移文件（不执行）",
+      fun: () => execCmd(drizzleKit("generate", dialect)),
+    },
+    {
+      name: "migrate",
+      remark: "✅ 执行已生成的迁移（生产用）",
+      fun: () => execCmd(drizzleKit("migrate", dialect)),
+    },
+    {
+      name: "generate+migrate",
+      remark: "✅ 生成 + 执行迁移",
+      fun: () =>
+        execCmd(
+          `${drizzleKit("generate", dialect)} && ${drizzleKit("migrate", dialect)}`,
+        ),
+    },
+    {
+      name: "push",
+      remark: "⚠️ 直接同步结构，不生成迁移",
+      fun: () => execCmd(drizzleKit("push", dialect)),
+    },
+    {
+      name: "drop",
+      remark: "⚠️ 删除无效/旧迁移文件",
+      fun: () => execCmd(drizzleKit("drop", dialect)),
+    },
+    {
+      name: "check",
+      remark: "✅ 检查迁移是否合法",
+      fun: () => execCmd(drizzleKit("check", dialect)),
+    },
+    {
+      name: "up",
+      remark: "✅ 应用最新迁移（等价 migrate）",
+      fun: () => execCmd(drizzleKit("up", dialect)),
+    },
+  ],
+});
 
 // ── 菜单数据 ─────────────────────────────────────────────────
 
@@ -258,52 +318,8 @@ const menuItems: MenuItem[] = [
   },
   {
     name: "drizzle",
-    remark: "Drizzle 相关",
-    children: [
-      {
-        name: "studio",
-        remark: "✅ 数据库可视化管理",
-        fun: () => execCmd("bun --bun run drizzle-kit studio"),
-      },
-      {
-        name: "generate",
-        remark: "✅ 仅生成迁移文件（不执行）",
-        fun: () => execCmd("bun --bun run drizzle-kit generate"),
-      },
-      {
-        name: "migrate",
-        remark: "✅ 执行已生成的迁移（生产用）",
-        fun: () => execCmd("bun --bun run drizzle-kit migrate"),
-      },
-      {
-        name: "generate+migrate",
-        remark: "✅ 生成 + 执行迁移",
-        fun: () =>
-          execCmd(
-            "bun --bun run drizzle-kit generate && bun --bun run drizzle-kit migrate",
-          ),
-      },
-      {
-        name: "push",
-        remark: "⚠️ 直接同步结构，不生成迁移",
-        fun: () => execCmd("bun --bun run drizzle-kit push"),
-      },
-      {
-        name: "drop",
-        remark: "⚠️ 删除无效/旧迁移文件",
-        fun: () => execCmd("bun --bun run drizzle-kit drop"),
-      },
-      {
-        name: "check",
-        remark: "✅ 检查迁移是否合法",
-        fun: () => execCmd("bun --bun run drizzle-kit check"),
-      },
-      {
-        name: "up",
-        remark: "✅ 应用最新迁移（等价 migrate）",
-        fun: () => execCmd("bun --bun run drizzle-kit up"),
-      },
-    ],
+    remark: "Drizzle 相关（mysql / postgresql / sqlite）",
+    children: DIALECTS.map(drizzleMenu),
   },
 ];
 
