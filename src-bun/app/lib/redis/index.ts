@@ -2,7 +2,8 @@ import { redis as db, RedisClient } from "bun";
 import { inAotBuild } from "elysia";
 import { logger } from "@/app/lib/logger";
 
-function client() {
+/** 创建 Redis 客户端，按配置惰性连接（AOT 构建期不建连） */
+function createClient() {
   let redis: RedisClient = db;
   try {
     /** redis客户端 */
@@ -20,5 +21,8 @@ function client() {
   }
   return redis;
 }
-export const redis = client();
-export default redis;
+
+/** Redis 客户端 */
+export const client = createClient();
+
+export default client;

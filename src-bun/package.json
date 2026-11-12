@@ -4,16 +4,16 @@
   "type": "module",
   "scripts": {
     "menu": "bun ./system/script/menu.ts",
-    "dev": "bun --parallel run watch_generate_script watch_dev",
+    "dev": "bun --parallel run gen:watch watch_dev",
     "start-hot": "NODE_ENV=production bun --hot ./app/cluster.ts",
     "start-hot-bg": "NODE_ENV=production bun --hot --background ./app/cluster.ts",
     "fix": "bunx --bun @biomejs/biome check --write .",
     "watch_dev": "bun --watch ./app/cluster.ts",
-    "watch_generate_script": "bun ./system/script/index.ts watch",
-    "generate": "bun --parallel 'generate_*'",
-    "generate_script": "bun ./system/script/index.ts",
-    "generate_drigrate_migrate": "bun --bun run drizzle-kit generate && bun --bun run drizzle-kit migrate",
-    "drizzle_studio": "bun --bun run drizzle-kit studio"
+    "gen:watch": "bun ./system/script/index.ts watch",
+    "gen": "bun ./system/script/index.ts",
+    "db:generate": "bun --bun run drizzle-kit generate",
+    "db:migrate": "bun --bun run drizzle-kit migrate",
+    "db:studio": "bun --bun run drizzle-kit studio"
   },
   "dependencies": {
     "@ai-sdk/openai-compatible": "^3.0.84",

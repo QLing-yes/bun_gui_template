@@ -150,8 +150,8 @@
   - `user`：`id`（serial 主键）、`email`（varchar 255，非空、唯一）、`name`（varchar 255，可空）。
   - `post`：`id`（serial 主键）、`title`（varchar 255，非空）、`content`（text）、`published`（boolean，非空、默认 false）、`author_id`（int，非空）。
   - 关系（`relations.ts`）：`user.posts` 一对多、`post.author` 多对一。
-  - `system/generated/schema.ts` 仅导出 `post`/`user` 的 insert schema，供请求校验。
-- Redis：`src-bun/app/lib/redis.ts` 按 `REDIS_URL` 惰性连接；`.env` 默认未启用，当前不承载任何业务持久化表。
+  - `system/generated/model/schema.ts` 仅导出 `post`/`user` 的 insert schema，供请求校验。
+- Redis：`src-bun/app/lib/redis/index.ts` 按 `REDIS_URL` 惰性连接；`.env` 默认未启用，当前不承载任何业务持久化表。
 - 聊天：流式、无状态，不落消息/会话表（此处的「会话」指 HTTP 登录会话/会话 Cookie，属规划态鉴权概念，与 `/chat` 页内存中的对话消息无关）。
 - **同步与对象存储尚未实现**：
   - 没有上传/下载同步接口，没有同步包、墓碑、乐观锁或任务锁。

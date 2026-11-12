@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { t } from "elysia";
-import { post, user } from "@/app/model/mysql";
+import { post, user } from "@/system/generated/model/mysql";
 
 export default $g.ctrl((app) =>
   app

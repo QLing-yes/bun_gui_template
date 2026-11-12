@@ -132,9 +132,9 @@ lib/：
 - `app/index.ts` — 应用组装入口（AOT 指向）；`app/cluster.ts` — 进程管理入口（宿主启动它，集群 worker 跑同目录 `index.js`）
 - `app/common/` — `index.ts`（`$g` 聚合导出：db/logger/redis/res/ctrl/success/error/counter，生成的 routes.ts 以此消费）、`tauri_sidecar.ts`（桌面令牌/宿主 PID 配置，token 非空=本地模式）、schemas/schemaDerive/init-global
 - `app/controller/api/` — 公共路由 `/api/**`（chat 流式对话、title AI 命名——同一 env 模型配置；`withProject=true`（新建项目）一次返回项目名+对话名两个字段，否则只返回对话名；JSON 宽容解析、坏值降级同值双名，test、嵌套示例 testsub）；`app/controller/offline/` — 桌面专属 `/offline/**`（服务器形态按令牌一律 404，门控在 `app/plugins/controller.plug.ts`；`exit` 供宿主退出时通知停服并退出（与父进程消失共用 `exitApp`，只执行一次））
-- `app/lib/` — drizzle / redis / logger / error；`app/model/` — 数据表 mold（user/post/relations）+ `index.ts` 聚合导出
+- `app/lib/` — mysql/index（连接池与启动校验）/ redis/index（客户端，均为 `client` 具名导出 + 默认导出）/ logger / error；`app/model/` — 表定义 mold（user/post/relations）+ `db.ts`（drizzle 实例，经 `$g.mysql` 使用；未来新增方言按 `$g.<方言>` 并列）
 - `app/plugins/` — 控制器注册 / macro / schema 插件；`app/utils/` — file / watch / menu-ui 通用工具 + `index.ts` 聚合导出
-- `system/script/` — `index.ts`（dev 生成入口：串起 routes/batchExport/genApiTypes，并指定 gen-api 输出到 src-web）/ build / build_tauri_bun（产出本地服务 JS 产物，不内嵌运行时）/ genApiTypes（产出声明式 API 类型树）/ routes（顶层路由前缀全部组合导出，漏导出=该前缀不可达）/ menu / batchExport；`system/types/global.d.ts` — `$g` 全局声明（genApiTypes 显式纳入）；`system/generated/` — 派生产物（勿手改）
+- `system/script/` — `index.ts`（dev 生成入口：串起 routes/batchExport/genApiTypes，并指定 gen-api 输出到 src-web）/ build / build_tauri_bun（产出本地服务 JS 产物，不内嵌运行时）/ genApiTypes（产出声明式 API 类型树）/ routes（顶层路由前缀全部组合导出，漏导出=该前缀不可达）/ menu / batchExport（按 `.mold.ts` 生成 `system/generated/model/schema.ts` 与 `system/generated/model/<方言>/index.ts` 表聚合）；`system/types/global.d.ts` — `$g` 全局声明（genApiTypes 显式纳入）；`system/generated/` — 全部派生产物（勿手改，按用途分目录）：`routes.ts`（路由聚合）/ `model/schema.ts`（elysia 模型注册表）/ `model/<方言>/index.ts`（表聚合）
 - `public/` — 服务静态资源；`logs/` — 运行日志
 - 产物树 `dist/`：主程序 `aigc.exe` 在根，服务相关全部在 `bun/` —— 入口 `cluster.js`（宿主启动的进程管理入口）+ `index.js`（AOT 应用入口 / 集群 worker 入口）+ `chunk-*.js`（代码分割共享块）+ `.env` + `public/` + 随包运行时 `bun.exe`/`bun`（构建期从构建机复制，运行期优先使用、缺失才回落 PATH），入口各带 linked `.map`；纯 JS 打包不编译运行时，由 Rust 以该目录为 CWD 启动
 

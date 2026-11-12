@@ -38,5 +38,5 @@ export default function generate(conf: Partial<typeof confing>) {
     })
     .join("\n");
 
-  writeIfChanged(op.out, `// auto generated\n${content}`);
+  writeIfChanged(op.out, `// auto generated\n${content}\n`);
 }

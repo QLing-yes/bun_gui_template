@@ -20,9 +20,15 @@ Project/
 │   ├── lib/
 │   │   ├── error.ts          # 进程异常事件捕获记录 (同步模式)
 │   │   ├── logger.ts         # 日志库 (默认异步模式)
-│   │   ├── drizzle.ts        # Drizzle 客户端
-│   │   └── redis.ts          # Redis 客户端
+│   │   ├── mysql/
+│   │   │   └── index.ts      # MySQL 连接池
+│   │   └── redis/
+│   │       └── index.ts      # Redis 客户端
 │   ├── model/                # Drizzle 数据模型目录 (`.mold.ts`结尾的文件内导出的具名`schema`将自动使用`elysia.model()`注册)
+│   │   └── mysql/
+│   │       ├── db.ts         # Drizzle 实例（绑定表关系）
+│   │       ├── relations.ts  # 表关系
+│   │       └── *.mold.ts     # 表定义（表聚合与模型注册表生成到 system/generated/model/）
 │   ├── plugins/
 │   │   ├── index.plug.ts     # 全局插件
 │   │   └── macro.plug.ts     # 宏插件
@@ -33,12 +39,13 @@ Project/
 │   └── index.ts              # 应用入口
 ├── logs/
 ├── test/                     # Eden 测试目录
-├── system/                  # 辅助脚本目录（无需关心）
-│   └── script/
-│       ├── index.ts          # 生成脚本
-│       ├── menu.ts           # 交互式命令菜单
-│       └── routes.ts         # 路由 生成工具
-│       └── batchExport.ts    # 批量导出文件 生成工具
+├── system/                  # 辅助脚本与派生产物
+│   ├── script/
+│   │   ├── index.ts          # 生成脚本
+│   │   ├── menu.ts           # 交互式命令菜单
+│   │   ├── routes.ts         # 路由 生成工具
+│   │   └── batchExport.ts    # 批量导出文件 生成工具
+│   └── generated/            # 派生产物（勿手改）：routes.ts、model/schema.ts、model/<方言>/index.ts
 |── .env                      # 配置文件
 |── drizzle.config.ts         # drizzle 配置
 ...
@@ -48,7 +55,7 @@ Project/
 
 1. **检查数据库配置** — 确认 [.env](.env) 中的数据库连接信息是否正确
 2. **确认数据模型** — 检查 [app/model](app/model) 中的模型定义是否符合需求
-3. **同步到数据库** — 运行 `bun run generate_drigrate_migrate`
+3. **同步到数据库** — 运行 `bun run db:generate` 生成迁移文件，再运行 `bun run db:migrate` 执行
 
 ## 快速开始
 
@@ -66,11 +73,12 @@ bun run start-hot # 以正式环境启动，支持热更新
 bun run start-hot-bg # 以正式环境启动，支持热更新，关闭终端不终止进程
 bun run fix     # 修复代码风格
 
-bun run generate  # 运行全部`generate_`开头的命令
-bun run generate_script  # 生成路由、批量导出文件、生成 eden API类型树（一般不需要手动执行）
+bun run gen       # 手动生成：路由、模型注册表、表聚合、eden API 类型树（一般无需手动）
+bun run gen:watch # 同上，持续监听变更（dev 已内置）
 
-bun run drizzle_studio  # drizzle可视化
-bun run generate_drigrate_migrate # 生成迁移并执行
+bun run db:generate # 仅生成迁移文件
+bun run db:migrate  # 执行已生成的迁移
+bun run db:studio   # drizzle 可视化
 
 ```
 - `bun run menu --list` 列出所有选项

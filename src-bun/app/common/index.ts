@@ -1,9 +1,9 @@
 import type controller from "@/app/plugins/controller.plug";
 import type { ResType } from "./schemaDerive";
 
-export { drizzle as mysql } from "@/app/lib/mysql/drizzle";
 export { logger } from "@/app/lib/logger";
-export { redis } from "@/app/lib/redis/redis";
+export { client as redis } from "@/app/lib/redis";
+export { db as mysql } from "@/app/model/mysql/db";
 export { ResSchemaFun as res } from "./schemaDerive";
 
 /** 控制器工厂 */

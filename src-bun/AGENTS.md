@@ -23,5 +23,5 @@
 
 # 控制器规则
 - 目录即前缀: `app/controller/<组>/...` 子目录生成路由前缀; 主 app `strictPath: true`, 子目录内写 `.post("/")` 会得到带尾斜杠的 `/api/xxx/` 而 `/api/xxx` 404——单路由场景用平铺文件 + 显式相对路径(如 `api/chat.ctrl.ts` + `.post("chat")` → `/api/chat`)。
-- 路由注册由生成器维护 `system/generated/routes.ts`: dev 时 watch 自动重生成; 手动加路由后跑 `bun run generate_script`(勿跑 `generate`, 会连带触发 drizzle 迁移)。
+- 路由注册由生成器维护 `system/generated/routes.ts`: dev 时 watch 自动重生成; 手动加路由后跑 `bun run gen`（纯代码生成，不触碰数据库；迁移走 `bun run db:generate` / `db:migrate`）。
 - 流式/原生响应: handler 可直接返回 Web `Response`(SSE/UI 消息流通用), 不走 `$g.success` 信封; env 缺失等错误分支返回 `Response.json(..., { status })`。

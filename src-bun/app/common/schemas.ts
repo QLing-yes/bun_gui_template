@@ -1,7 +1,7 @@
 // 这里导出的模型都将使用 elysia.model() 注册，也只能导出 具名 TypeBox schema
 import { t } from "elysia";
 
-export * from "@/system/generated/schema";// 导出的都有 schema_ 前缀
+export * from "@/system/generated/model/schema";// 导出的都有 schema_ 前缀
 
 /** 响应模型 */
 export const ResSchema = t.Object({

@@ -252,20 +252,9 @@ const menuItems: MenuItem[] = [
     fun: () => execCmd("bunx --bun @biomejs/biome check --write ."),
   },
   {
-    name: "generate",
-    remark: "生成代码",
-    children: [
-      {
-        name: "all",
-        remark: "路由 + Drizzle 迁移",
-        fun: () => execCmd("bun --parallel 'generate_*'"),
-      },
-      {
-        name: "script",
-        remark: "生成路由",
-        fun: () => execCmd("bun ./system/script/index.ts"),
-      },
-    ],
+    name: "gen",
+    remark: "生成路由、模型注册表、表聚合、API 类型树",
+    fun: () => execCmd("bun ./system/script/index.ts"),
   },
   {
     name: "drizzle",
