@@ -3,9 +3,9 @@
  * @description 时间段分文件日志库，支持按小时 / 天 / 月轮转
  *
  * 文件命名规则：
- *   hour  → logs/2026-03-19_14.log
- *   day   → logs/2026-03-19.log
- *   month → logs/2026-03.log
+ *   hour  → runtime/logs/2026-03-19_14.log
+ *   day   → runtime/logs/2026-03-19.log
+ *   month → runtime/logs/2026-03.log
  *
  * 写入模型（async 模式）：
  *   write() → 追加到内存 buffer → 定时 / 高水位 / 轮转时 appendFile 落盘
@@ -15,6 +15,7 @@
 import { appendFileSync, mkdirSync, readdirSync, unlinkSync } from "node:fs";
 import { appendFile, readdir, unlink } from "node:fs/promises";
 import { join } from "node:path";
+import { ENV } from "@/config/env";
 
 // ─── 类型 ────────────────────────────────────────────────────────────────────
 
@@ -33,7 +34,7 @@ export interface LoggerOptions {
   dir?: string;
   /** 文件轮转粒度，默认 `day` */
   rotateBy?: RotateBy;
-  /** 是否同时输出到终端，默认 `process.env.LOG_STDOUT` */
+  /** 是否同时输出到终端，默认取 `LOG_STDOUT` */
   stdout?: boolean;
   /** 最低记录级别，默认 `debug` */
   level?: LogLevel;
@@ -53,8 +54,6 @@ export interface LoggerOptions {
 }
 
 // ─── 常量 ────────────────────────────────────────────────────────────────────
-
-const env = process.env;
 
 /** 级别权重映射，用于过滤低级别日志 */
 const LEVEL_RANK: Record<LogLevel, number> = {
@@ -276,9 +275,9 @@ export class Logger {
    * @param options 构造选项
    */
   constructor(options: LoggerOptions = {}) {
-    this.dir = options.dir ?? "logs";
+    this.dir = options.dir ?? "runtime/logs";
     this.rotateBy = options.rotateBy ?? "day";
-    this.toStdout = options.stdout ?? JSON.parse(env.LOG_STDOUT ?? "false");
+    this.toStdout = options.stdout ?? ENV.LOG_STDOUT;
     this.minLevel = LEVEL_RANK[options.level ?? "debug"];
     this.highWaterMark = options.highWaterMark ?? 1024 * 1024;
     this.maxFiles = options.maxFiles ?? 0;
@@ -600,13 +599,11 @@ export class Logger {
     const label = `[${level.toUpperCase()}]`.padEnd(7);
     const metaStr = metaJson ? `\n${metaJson}` : "";
 
-    process.stdout.write(
-      `${color}${time} ${label}${RESET} ${msg}${metaStr}\n`,
-    );
+    process.stdout.write(`${color}${time} ${label}${RESET} ${msg}${metaStr}\n`);
   }
 }
 
 // ─── 默认单例 ─────────────────────────────────────────────────────────────────
 
-/** 全局默认 Logger，按天轮转，输出到 `./logs/` */
+/** 全局默认 Logger，按天轮转，输出到 `./runtime/logs/` */
 export const logger = new Logger();

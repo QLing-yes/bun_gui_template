@@ -19,7 +19,7 @@ dist-ssr
 # 生成的 API 类型树（dev 时自动重建，不入库）
 src-web/types/
 # SQLite 本地数据库文件
-data/
+database/
 # gen-api 临时 tsc 配置（强杀进程时残留，正常运行自清）
 .tsconfig.gen-api.tmp.json
 

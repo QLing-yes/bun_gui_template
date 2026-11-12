@@ -9,7 +9,10 @@ const config_file = join(root, ".tsconfig.gen-api.tmp.json");
 const entry = "app/index.ts";
 
 /** 单轮 gen 的进行状态 */
-type GenState = { timer: ReturnType<typeof setTimeout> | null; abort: AbortController | null };
+type GenState = {
+  timer: ReturnType<typeof setTimeout> | null;
+  abort: AbortController | null;
+};
 
 /** 各输出目录的进行中 gen（按 outDir 区分同一轮：同目录新触发终止上一轮，始终只跑最新） */
 const gen_states = new Map<string, GenState>();
@@ -19,7 +22,10 @@ const gen_states = new Map<string, GenState>();
  * @param signal 终止信号（新触发终止上一轮时，被终止轮抛错）
  * @throws 产物缺失或被终止时抛错
  */
-export default async function genApiTypes(outDir: string, signal?: AbortSignal) {
+export default async function genApiTypes(
+  outDir: string,
+  signal?: AbortSignal,
+) {
   const begin = performance.now();
   console.log("\n\x1b[33m🔄 [gen-api] 生成 API 类型树...\x1b[0m");
 
@@ -36,7 +42,9 @@ export default async function genApiTypes(outDir: string, signal?: AbortSignal) 
   }
 
   const ms = (performance.now() - begin).toFixed(0);
-  console.log(`\x1b[32m✅ [gen-api] 类型树生成完成 → ${out_dir} （${ms} ms）\x1b[0m\n`);
+  console.log(
+    `\x1b[32m✅ [gen-api] 类型树生成完成 → ${out_dir} （${ms} ms）\x1b[0m\n`,
+  );
 }
 
 /** 生成 API 类型树 便于客户端(eden)用于类型检查和代码提示

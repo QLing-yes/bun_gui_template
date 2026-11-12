@@ -1,4 +1,4 @@
-import { post, user } from "@/system/generated/model/mysql";
+import { post, user } from "@/runtime/generated/model/mysql";
 
 /** MySQL 表与关系测试 */
 export default $g.ctrl((app) =>

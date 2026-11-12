@@ -1,14 +1,19 @@
 // 全端图标圆角后处理：tauri icon 重生成后运行；半径=尺寸×7/32（32px 档恰 7px）
-// 覆盖主图 app-icon.png、icons/ 桌面族与 ico/icns、android mipmap、ios AppIcon、src-bun/public/icon.png
+// 覆盖主图 app-icon.png、icons/ 桌面族与 ico/icns、android mipmap、ios AppIcon、src-bun/<STATIC_DIR>/icon.png
 // 依赖 sharp（行业标准图像处理）+ png-to-ico（在更）；ICNS 无在更 npm 包 → 按 Apple 稳定规格手写容器
 // 运行：bun scripts/round_icons.ts
 
-import { readdir, readFile, writeFile } from "node:fs/promises"
+import { mkdir, readdir, readFile, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import sharp from "sharp"
 import pngToIco from "png-to-ico"
 
 const ROOT = join(import.meta.dirname, "..")
+/** bun 服务静态资源目录（src-bun 之外按常规直接读取环境变量，必填无默认） */
+const STATIC_DIR = process.env.STATIC_DIR
+if (!STATIC_DIR) throw new Error("缺少 STATIC_DIR 环境变量")
+/** bun 服务静态目录绝对路径（图标写入位置） */
+const STATIC_OUT = join(ROOT, "src-bun", STATIC_DIR)
 /** 圆角半径比例：32px 档恰 7px */
 const RATIO = 7 / 32
 
@@ -103,7 +108,9 @@ async function main(): Promise<void> {
   const entries: [string, Buffer][] = []
   for (const [type, size] of icnsMap) entries.push([type, await at(size)])
   await writeFile(join(icons, "icon.icns"), icns(entries))
-  await writeFile(join(ROOT, "src-bun/public/icon.png"), await at(128))
+  /** bun 服务静态目录（自定义 STATIC_DIR 时先建目录） */
+  await mkdir(STATIC_OUT, { recursive: true })
+  await writeFile(join(STATIC_OUT, "icon.png"), await at(128))
   console.log("rounded icons written (ratio 7/32, all platforms)")
 }
 

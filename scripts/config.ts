@@ -1,6 +1,10 @@
-import { mergeDeep } from "../src-bun/app/utils";
-import { writeIfChanged } from "../src-bun/app/utils/file";
+import { mergeDeep } from "../src-bun/utils";
+import { writeIfChanged } from "../src-bun/utils/file";
 import path from "node:path";
+
+/** Web 开发端口（src-bun 之外按常规直接读取环境变量） */
+const VITE_PORT = process.env.VITE_PORT;
+if (!VITE_PORT) throw new Error("缺少环境变量：VITE_PORT");
 
 async function build_tauri_conf() {
     console.log("\n\x1b[33m🔄 [tauri.conf.json] 编译中...\x1b[0m\n");
@@ -9,7 +13,7 @@ async function build_tauri_conf() {
 
     const config = {
         "build": {
-            "devUrl": `http://localhost:${process.env.VITE_PORT}`,
+            "devUrl": `http://localhost:${VITE_PORT}`,
         },
     }
 

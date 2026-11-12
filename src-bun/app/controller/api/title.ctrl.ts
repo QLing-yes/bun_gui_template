@@ -3,6 +3,7 @@
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { convertToModelMessages, generateText, type UIMessage } from "ai";
 import { t } from "elysia";
+import { ENV } from "@/config/env";
 
 /** 单名指令：项目内新对话，只生成对话名 */
 const SINGLE_INSTRUCTION =
@@ -34,8 +35,8 @@ export default $g.ctrl((app) =>
       }),
     },
     async ({ body, request }) => {
-      const baseURL = Bun.env.AI_BASE_URL;
-      const modelId = Bun.env.AI_MODEL;
+      const baseURL = ENV.AI_BASE_URL;
+      const modelId = ENV.AI_MODEL;
       // env 未配置：返回明确错误，前端回落占位名
       if (!baseURL || !modelId) {
         return Response.json(
@@ -48,7 +49,7 @@ export default $g.ctrl((app) =>
       const provider = createOpenAICompatible({
         name: "custom",
         baseURL,
-        apiKey: Bun.env.AI_API_KEY ?? "",
+        apiKey: ENV.AI_API_KEY ?? "",
       });
 
       const withProject = body.withProject === true;

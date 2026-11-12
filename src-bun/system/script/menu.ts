@@ -9,7 +9,7 @@
  */
 
 import { join } from "node:path";
-import { entry, execCmd, type MenuItem } from "@/app/utils/menu-ui.ts";
+import { entry, execCmd, type MenuItem } from "@/utils/menu-ui.ts";
 import { build as bunBuild, main } from "./build.ts";
 
 const build = (target: Bun.Build.CompileTarget) => {
@@ -18,12 +18,12 @@ const build = (target: Bun.Build.CompileTarget) => {
   });
 };
 
-/** 迁移菜单覆盖的方言（对应 drizzle.config.<方言>.ts） */
+/** 迁移菜单覆盖的方言（对应 config/drizzle/<方言>.ts） */
 const DIALECTS = ["mysql", "postgresql", "sqlite"];
 
 /** 构造 drizzle-kit 命令 */
 const drizzleKit = (cmd: string, dialect: string) =>
-  `bun --bun run drizzle-kit ${cmd} --config=./drizzle.config.${dialect}.ts`;
+  `bun --bun run drizzle-kit ${cmd} --config=./config/drizzle/${dialect}.ts`;
 
 /** 单方言的 drizzle 菜单 */
 const drizzleMenu = (dialect: string): MenuItem => ({

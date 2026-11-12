@@ -25,8 +25,12 @@
 8. `precompile: true` 是运行期选项: AOT 下命中 manifest 时复用已编译程序, 保留不冲突; 其实际收益需以启动/首请求实测为准。
 9. 改动后必验清单: 构建产物能 `bun dist/index.js` 启动; `/openapi`、动态参数路由、校验错误响应正常; `CLUSTER_ENABLED=true` 多 worker 正常; 日志无 AOT 报错; 构建期无外部服务连接。
 
+# 环境变量
+- src-bun 模块内禁止直接读 `process.env` / `Bun.env`（构建期 define 注入的 `process.env.NODE_ENV` 字面量、宿主注入的 `TAURI_SIDECAR` 除外；后者在 `app/common/tauri_sidecar.ts` 直接读 `process.env`），统一从 `@/config/env` 的 `ENV` 读取；`config/env.ts` 只收 `.env` 里声明的变量，默认值只写在 `.env`，读取/校验/类型转换的通用逻辑放 `utils/env_handle.ts`。
+- src-bun 之外的脚本（根 `scripts/` 等）按常规方式直接读 `process.env`，不反向依赖 src-bun 的 `ENV`。
+
 # 控制器规则
 - 目录即前缀: `app/controller/<组>/...` 子目录生成路由前缀; 主 app `strictPath: true`, 子目录内写 `.post("/")` 会得到带尾斜杠的 `/api/xxx/` 而 `/api/xxx` 404——单路由场景用平铺文件 + 显式相对路径(如 `api/chat.ctrl.ts` + `.post("chat")` → `/api/chat`)。
 - 按业务用文件夹分类: 同一业务的多条路由收进同名子目录(如 `system/auth/auth.ctrl.ts` → `/system/auth/**`), 文件内路径只写相对段(`"login"`), 不重复目录名; 单路由业务仍用平铺文件。
-- 路由注册由生成器维护 `system/generated/routes.ts`: dev 时 watch 自动重生成; 手动加路由后跑 `bun run gen`（纯代码生成，不触碰数据库；迁移走 `bun run db:generate[:postgresql|:sqlite]` / `db:migrate[...]`，缺省 mysql，每方言对应一份 `drizzle.config.<方言>.ts`）。
+- 路由注册由生成器维护 `runtime/generated/routes.ts`: dev 时 watch 自动重生成; 手动加路由后跑 `bun run gen`（纯代码生成，不触碰数据库；迁移走 `bun run db:generate[:postgresql|:sqlite]` / `db:migrate[...]`，缺省 mysql，迁移配置集中在 `config/drizzle/<方言>.ts`）。
 - 流式/原生响应: handler 可直接返回 Web `Response`(SSE/UI 消息流通用), 不走 `$g.success` 信封; env 缺失等错误分支返回 `Response.json(..., { status })`。

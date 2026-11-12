@@ -1,12 +1,13 @@
 import fs from "node:fs";
-import { watchDir } from "@/app/utils/watch";
-import batchExport from "./batchExport";
-import { triggerGenApiTypes } from "./genApiTypes";
-import autoRoutes from "./routes";
+import { ENV } from "@/config/env";
+import batchExport from "@/utils/generate/batchExport";
+import { triggerGenApiTypes } from "@/utils/generate/genApiTypes";
+import autoRoutes from "@/utils/generate/routes";
+import { watchDir } from "@/utils/watch";
 
 const args = process.argv.slice(2);
 /** 生成物根目录（全部派生产物只允许落在该目录内） */
-const gen_root = "./system/generated";
+const gen_root = "./runtime/generated";
 /** 模型派生产物目录 */
 const model_root = `${gen_root}/model`;
 
@@ -20,8 +21,14 @@ const model_export_config = {
   out: `${model_root}/schema.ts`,
   template: `export { schema as schema_{{name}} } from "{{path}}";`,
 };
-/** API 类型树输出目录（须在 src-web 内，不入库） */
-const gen_api_outDir = "../src-web/types/gen-api";
+/** API 类型树输出目录（未配置时跳过，避免独立运行写到目录外） */
+const gen_api_outDir = ENV.GEN_API_OUT_DIR;
+
+/** 触发 Eden API 类型树生成 */
+function genApi() {
+  if (!gen_api_outDir) return;
+  triggerGenApiTypes(gen_api_outDir);
+}
 
 /** 按方言目录生成表聚合：新增 app/model/<方言> 目录即自动纳入，无需改本脚本 */
 function genModelTables() {
@@ -42,7 +49,9 @@ function genModelTables() {
 autoRoutes(routes_watch_config); // 文件路由生成
 batchExport(model_export_config); // schema 注册表生成
 genModelTables(); // 表聚合生成
-triggerGenApiTypes(gen_api_outDir); // API 类型树生成
+if (gen_api_outDir)
+  genApi(); // API 类型树生成（未配置输出目录时跳过）
+else console.log("\x1b[33m⚠ 未配置 GEN_API_OUT_DIR，跳过 Eden 类型树\x1b[0m");
 
 if (args[0] === "watch") {
   // 监听路由文件变更（autoRoutes 只在结构变化时重写 routes.ts，控制器内部改动也影响类型，故直接串联 gen）
@@ -51,7 +60,7 @@ if (args[0] === "watch") {
     suffix: [".ctrl.ts"],
     onChange() {
       autoRoutes(routes_watch_config);
-      triggerGenApiTypes(gen_api_outDir);
+      genApi();
     },
   });
   // 监听模型文件变更
@@ -61,7 +70,7 @@ if (args[0] === "watch") {
     onChange() {
       batchExport(model_export_config);
       genModelTables();
-      triggerGenApiTypes(gen_api_outDir);
+      genApi();
     },
   });
   console.log("\x1b[32m 👀 watch auto generate \x1b[0m");

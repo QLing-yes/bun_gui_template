@@ -1,4 +1,4 @@
-import { filePathTree, writeIfChanged } from "@/app/utils/file";
+import { filePathTree, writeIfChanged } from "../file";
 
 interface DirInfo {
   idx: number;
@@ -139,7 +139,7 @@ export default function generate(op: Config) {
   const chunks: string[] = [`${output.comment}\n${output.import}\n`];
   fileList.forEach((uri, i) => chunks.push(`import mod_${i} from "${uri}";\n`));
 
-  chunks.push("\nconst num = () => String($g.counter.n);\n")
+  chunks.push("\nconst num = () => String($g.counter.n);\n");
 
   const dirKeys = Object.keys(fileTree).sort();
   const dirInfo = buildDirInfo(dirKeys, config.fromDir);
@@ -176,12 +176,12 @@ export default function generate(op: Config) {
   const rootIdx = dirKeys
     .filter((d) => getDepth(d, config.fromDir) === 1)
     .map((d) => dirInfo.get(d)?.idx)
-    .filter((i): i is number => i !== undefined)
+    .filter((i): i is number => i !== undefined);
   const exportDefault =
     output.exportDefault ??
     `new Elysia({ name: num() })${rootIdx
       .map((i) => `.use(${output.pluginPrefix}${i}())`)
-      .join("")}`
+      .join("")}`;
 
   chunks.push(`\nexport default ${exportDefault};\n`);
   writeIfChanged(config.target, chunks.join(""));

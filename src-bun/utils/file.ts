@@ -25,7 +25,10 @@ export function write(filePath: string, flags = "w"): fs.WriteStream {
  * @returns 是否实际写入
  */
 export function writeIfChanged(filePath: string, content: string): boolean {
-  if (fs.existsSync(filePath) && fs.readFileSync(filePath, "utf8") === content) {
+  if (
+    fs.existsSync(filePath) &&
+    fs.readFileSync(filePath, "utf8") === content
+  ) {
     return false;
   }
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
@@ -102,12 +105,16 @@ export function filePathTree(suffix: string[], pattern: string | string[]) {
 export function globTree(pattern: string | string[], exclude: string[] = []) {
   const list = fs.globSync(pattern, { exclude });
   const tree: Record<string, number[]> = {};
-  list.forEach((uri, i) => (tree[path.dirname(uri)] ??= []).push(i));
+  list.forEach((uri, i) => {
+    const dir = path.dirname(uri);
+    tree[dir] ??= [];
+    tree[dir]?.push(i);
+  });
   return {
     /** 全部匹配路径 */
     list,
     /** 按目录分组 → list的下标 */
-    tree
+    tree,
   };
 }
 
@@ -134,27 +141,29 @@ export async function copyTo(op: {
 
   const destList = await Promise.all(
     // withFileTypes 直接拿 Dirent，省掉每个匹配项一次 stat
-    fs.globSync(pattern, { exclude, withFileTypes: true }).map(async (dirent) => {
-      const uri = path.join(dirent.parentPath, dirent.name);
-      // 保持结构时只接受 cwd 内路径，越界（..）退化为平铺，避免写到 target 之外
-      const rel = path.relative(root, uri);
-      const dest = preserveDir && !rel.startsWith("..")
-        ? path.join(target, rel)
-        : path.join(target, dirent.name);
+    fs
+      .globSync(pattern, { exclude, withFileTypes: true })
+      .map(async (dirent) => {
+        const uri = path.join(dirent.parentPath, dirent.name);
+        // 保持结构时只接受 cwd 内路径，越界（..）退化为平铺，避免写到 target 之外
+        const rel = path.relative(root, uri);
+        const dest =
+          preserveDir && !rel.startsWith("..")
+            ? path.join(target, rel)
+            : path.join(target, dirent.name);
 
-      // 目录命中只负责建目录（内容由 glob 命中的文件逐个复制，避免整棵树重复拷贝）
-      if (dirent.isDirectory()) {
-        if (!copyEmptyDir) return null;
-        await fs.promises.mkdir(dest, { recursive: true });
+        // 目录命中只负责建目录（内容由 glob 命中的文件逐个复制，避免整棵树重复拷贝）
+        if (dirent.isDirectory()) {
+          if (!copyEmptyDir) return null;
+          await fs.promises.mkdir(dest, { recursive: true });
+          return dest;
+        }
+
+        // 文件交给 cp：自动建父级目录、同名覆盖
+        await fs.promises.cp(uri, dest, { force: true });
         return dest;
-      }
-
-      // 文件交给 cp：自动建父级目录、同名覆盖
-      await fs.promises.cp(uri, dest, { force: true });
-      return dest;
-    }),
+      }),
   );
 
   return destList.filter((dest) => dest !== null);
 }
-

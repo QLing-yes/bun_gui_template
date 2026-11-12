@@ -1,5 +1,5 @@
 import { defineRelations } from "drizzle-orm";
-import * as schema from "@/system/generated/model/postgresql";
+import * as schema from "@/runtime/generated/model/postgresql";
 
 export const relations = defineRelations(schema, (r) => ({
   user: {

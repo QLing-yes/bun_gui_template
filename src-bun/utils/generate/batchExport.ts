@@ -1,4 +1,4 @@
-import { filePathTree, writeIfChanged } from "@/app/utils/file";
+import { filePathTree, writeIfChanged } from "../file";
 
 const confing = {
   /** 根目录 */
@@ -21,7 +21,9 @@ export default function generate(conf: Partial<typeof confing>) {
   );
 
   // 构建正则：匹配结尾是数组中任意一项
-  const suffix_reg = new RegExp(`(${op.suffix.map(s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})$`);
+  const suffix_reg = new RegExp(
+    `(${op.suffix.map((s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})$`,
+  );
 
   const content = filePaths.list
     .map((path) => {
@@ -32,9 +34,7 @@ export default function generate(conf: Partial<typeof confing>) {
         .replace(suffix_reg, "")
         .replaceAll("/", "_");
 
-      return op.template
-        .replace(/{{path}}/g, path)
-        .replace(/{{name}}/g, name);
+      return op.template.replace(/{{path}}/g, path).replace(/{{name}}/g, name);
     })
     .join("\n");
 

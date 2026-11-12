@@ -20,11 +20,11 @@ export default (app: Ctrl) =>
       },
       async () => {
         const { permRoutes } = await collectPermRoutes();
-        /** 权限编号 + 路由签名，Map 需展开后遍历 */
+        /** 权限编号 → 路由签名（重复编号以 " | " 连接展示） */
         const perm_route = {} as Record<number, string>;
-        [...permRoutes].map(([code, path]) => {
-          perm_route[code] = path;
-        });
+        for (const [code, routes] of permRoutes) {
+          perm_route[code] = routes.join(" | ");
+        }
         return $g.success(perm_route);
       },
     );

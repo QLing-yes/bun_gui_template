@@ -1,6 +1,7 @@
 import { and, eq, isNull, lt } from "drizzle-orm";
 import { db } from "@/app/model/sqlite/db";
-import { session, user } from "@/system/generated/model/sqlite";
+import { AUTH_PRUNE_INTERVAL_MS } from "@/config/auth";
+import { session, user } from "@/runtime/generated/model/sqlite";
 import { AUTH } from "./config";
 import { createRefreshToken, hashRefreshToken, signAccessToken } from "./token";
 
@@ -44,14 +45,11 @@ async function issue(
   };
 }
 
-/** 过期会话清理间隔（毫秒） */
-const PRUNE_INTERVAL_MS = 60 * 60 * 1000;
-
 let lastPruneAt = 0;
 
 /** 清理已过期会话（每小时最多执行一次，避免会话表无限增长） */
 function pruneExpiredSessions(now: number): void {
-  if (now - lastPruneAt < PRUNE_INTERVAL_MS) return;
+  if (now - lastPruneAt < AUTH_PRUNE_INTERVAL_MS) return;
   lastPruneAt = now;
   db.delete(session).where(lt(session.expiresAt, now)).run();
 }

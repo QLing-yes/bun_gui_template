@@ -60,7 +60,7 @@
   // ==========================================
   "include": [
     "scripts/*.ts",
-    "src-bun/app/utils/*.ts",
+    "src-bun/utils/*.ts",
     "src-bun/system/script/build_tauri_bun.ts",
   ],
   "exclude": [

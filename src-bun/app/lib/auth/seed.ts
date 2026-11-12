@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { db } from "@/app/model/sqlite/db";
-import { role } from "@/system/generated/model/sqlite";
+import { role } from "@/runtime/generated/model/sqlite";
 import { AUTH } from "./config";
 
 /** 内置角色定义（按 code 幂等写入） */

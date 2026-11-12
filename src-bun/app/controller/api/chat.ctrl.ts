@@ -9,6 +9,7 @@ import {
   type UIMessage,
 } from "ai";
 import { t } from "elysia";
+import { ENV } from "@/config/env";
 
 export default $g.ctrl((app) =>
   app.post(
@@ -18,8 +19,8 @@ export default $g.ctrl((app) =>
       body: t.Object({ messages: t.Array(t.Any()) }),
     },
     async ({ body, request }) => {
-      const baseURL = Bun.env.AI_BASE_URL;
-      const modelId = Bun.env.AI_MODEL;
+      const baseURL = ENV.AI_BASE_URL;
+      const modelId = ENV.AI_MODEL;
       // env 未配置：返回明确错误，前端 Alert 直接可见
       if (!baseURL || !modelId) {
         return Response.json(
@@ -32,7 +33,7 @@ export default $g.ctrl((app) =>
       const provider = createOpenAICompatible({
         name: "custom",
         baseURL,
-        apiKey: Bun.env.AI_API_KEY ?? "",
+        apiKey: ENV.AI_API_KEY ?? "",
       });
 
       const result = streamText({

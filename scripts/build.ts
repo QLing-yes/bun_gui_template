@@ -1,7 +1,7 @@
 import { join } from "node:path";
 import fs from "node:fs";
 import { pipe_out } from "./spawn.ts";
-import { copyTo } from "../src-bun/app/utils/file.ts";
+import { copyTo } from "../src-bun/utils/file.ts";
 
 const root = process.cwd();
 

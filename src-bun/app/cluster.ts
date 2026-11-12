@@ -1,22 +1,16 @@
-import { spawn } from "bun";
 import os from "node:os";
+import { spawn } from "bun";
+import { ENV } from "@/config/env";
 import { sidecarEnv, watchParentExit } from "./common/tauri_sidecar";
 
-const port = process.env.PORT;
+const port = ENV.PORT;
 /** worker 入口与当前文件同目录：源码运行为 index.ts，打包产物为 index.js */
 const workerEntry = `${import.meta.dir}/index${import.meta.path.endsWith(".ts") ? ".ts" : ".js"}`;
 
-if (!port) {
-  console.error("[cluster] Missing environment variable PORT, shutting down...");
-  process.exit(1);
-}
-
 (async () => {
   // 集群模式未启用，直接加载应用入口（单进程）
-  if (process.env.CLUSTER_ENABLED !== "true") {
-    console.info(
-      `server ${process.pid} http://localhost:${port}/openapi`,
-    );
+  if (!ENV.CLUSTER_ENABLED) {
+    console.info(`server ${process.pid} http://localhost:${port}/openapi`);
     await import("./index");
     return;
   }
@@ -28,12 +22,14 @@ if (!port) {
   const workersCount = Math.max(
     1,
     Math.min(
-      Number(process.env.CLUSTER_WORKERS) || os.availableParallelism(),
+      ENV.CLUSTER_WORKERS ?? os.availableParallelism(),
       os.availableParallelism(),
     ),
   );
 
-  console.info(`[cluster] Starting ${workersCount} workers on port reuse mode...`);
+  console.info(
+    `[cluster] Starting ${workersCount} workers on port reuse mode...`,
+  );
 
   const workers = new Array(workersCount);
   let isShuttingDown = false;
@@ -46,7 +42,7 @@ if (!port) {
       env: { ...process.env, ...sidecarEnv() },
       stdout: "inherit",
       stderr: "inherit",
-      stdin: "inherit"
+      stdin: "inherit",
     });
 
     workers[index] = worker;
@@ -54,7 +50,9 @@ if (!port) {
     worker.exited.then((code: number) => {
       // 避免在主进程正在退出，或者子进程正常退出时触发重启
       if (!isShuttingDown && code !== 0) {
-        console.error(`[cluster] worker ${index} exited with code ${code}, restarting...`);
+        console.error(
+          `[cluster] worker ${index} exited with code ${code}, restarting...`,
+        );
         // 延迟一秒重启，防止崩溃死循环
         setTimeout(() => {
           startWorker(index);

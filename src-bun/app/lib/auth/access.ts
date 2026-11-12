@@ -1,4 +1,5 @@
 import { db } from "@/app/model/sqlite/db";
+import { AUTH_CACHE_LIMIT, AUTH_CACHE_TTL } from "@/config/auth";
 import { AUTH } from "./config";
 
 /** 登录用户的鉴权上下文（带缓存） */
@@ -41,9 +42,6 @@ interface CacheEntry {
   pending: Promise<AuthContext | null>;
 }
 
-/** 缓存条目上限，超过时顺带清理过期项 */
-const CACHE_LIMIT = 500;
-
 const cache = new Map<number, CacheEntry>();
 
 /** 查询鉴权上下文（用户状态 + 启用角色 + 权限并集） */
@@ -75,7 +73,7 @@ async function loadAuthContext(userId: number): Promise<AuthContext | null> {
 
 /** 清理已过期的缓存条目 */
 function sweepCache(now: number): void {
-  if (cache.size < CACHE_LIMIT) return;
+  if (cache.size < AUTH_CACHE_LIMIT) return;
   for (const [userId, entry] of cache) {
     if (entry.expireAt <= now) cache.delete(userId);
   }
@@ -90,7 +88,7 @@ export function resolveAuthContext(
   if (hit && hit.expireAt > now) return hit.pending;
 
   const pending = loadAuthContext(userId);
-  cache.set(userId, { expireAt: now + AUTH.cacheTtl, pending });
+  cache.set(userId, { expireAt: now + AUTH_CACHE_TTL, pending });
   // 查询失败不缓存，下次请求重新加载
   pending.catch(() => cache.delete(userId));
   sweepCache(now);

@@ -9,7 +9,9 @@
   },
   // 📁 文件处理相关配置
   "files": {
-    "ignoreUnknown": false // 不忽略未知文件类型：遇到未识别的文件时会报错提示（而非静默跳过）
+    "ignoreUnknown": false, // 不忽略未知文件类型：遇到未识别的文件时会报错提示（而非静默跳过）
+    // 运行期产物目录不参与检查/格式化（含 generated / database / logs）
+    "includes": ["**", "!runtime/**", "!config/biome", "!config/biome/**"]
   },
   // ✨ 代码格式化工具配置
   "formatter": {

@@ -40,7 +40,7 @@ bun_gui_template/
 - `components.json` — shadcn CLI（css→src/index.scss；registry 组件的 cn 直接落 `cn` 包，无 lib/utils 落点；registries：@ai-elements、@useanimations=`https://useanimations.com/r/{name}.json`）
 - `eslint.config.js` — 含架构边界强制：IPC 仅 `lib/tauri/`、Eden 仅 `lib/api.ts`、fetch 仅 `lib/chat.ts`、Dexie 与 localStorage/sessionStorage/indexedDB/document.cookie 仅 `lib/storage.ts`
 - `index.html` — 入口 + favicon + 首帧主题提示脚本（样式加载前只解析极短 cookie `aigc-theme`，非法/缺失回落跟随系统，避免 IndexedDB 异步读取前闪色）
-- `types/gen-api/` — 生成的 API 类型树（不入库）：由 src-bun/system/script 的 genApiTypes 产出，`tsconfig.app.json` 的 `@/*`·`@bun/*`·`*` 别名都指向这里，web 端 Eden 类型从此解析
+- `types/gen-api/` — 生成的 API 类型树（不入库）：由 src-bun/utils/generate 的 genApiTypes 产出，`tsconfig.app.json` 的 `@/*`·`@bun/*`·`*` 别名都指向这里，web 端 Eden 类型从此解析
 
 src/：
 - `main.tsx` — 挂载入口：引全局样式、输入守卫、sidecar 退出监听、`<AppBoot>` 启动闸门（IndexedDB 装载 + store 水合完成后才渲染，期间整页骨架/错误重试/自动退避）、`<ThemeProvider>`（主题上下文根，初始档位取自启动结果）、`<TooltipProvider/>`（全路由单实例，登录页与主壳共用）、`<Toaster/>`（全局提示出口）、`<StorageStatusToast/>`（落库失败轻提示）、`<WindowBootstrap/>`（圆角通道发布 + 窗口出场时机）
@@ -131,13 +131,16 @@ lib/：
 
 - `app/index.ts` — 应用组装入口（AOT 指向）；`app/cluster.ts` — 进程管理入口（宿主启动它，集群 worker 跑同目录 `index.js`）
 - `app/common/` — `index.ts`（`$g` 聚合导出：mysql/pg/sqlite ORM、redis、logger、res/ctrl/success/error/counter，生成的 routes.ts 以此消费）、`tauri_sidecar.ts`（桌面令牌/宿主 PID 配置，token 非空=本地模式）、schemas/schemaDerive/init-global
-- `app/controller/api/` — 公共路由 `/api/**`（chat、title）；`app/controller/system/` — 本系统专用 `/system/**`（`system.ctrl.ts` 服务自检 ready/all_perm；`auth/auth.ctrl.ts` 注册/登录/刷新/登出/me）；`app/controller/test/` — 测试路由 `/test/**`（框架响应测试 + mysql/postgresql/sqlite 方言测试）；`app/controller/offline/` — 桌面专属 `/offline/**`（服务器形态一律 404，门控在 `app/plugins/controller.plug.ts`）
+- `app/controller/api/` — 公共路由 `/api/**`（chat、title）；`app/controller/system/` — 本系统专用 `/system/**`（`system.ctrl.ts` 服务自检 ready/all_perm；`auth/auth.ctrl.ts` 注册/登录/刷新/登出/me/孤儿权限编号）；`app/controller/test/` — 测试路由 `/test/**`（框架响应测试 + mysql/postgresql/sqlite 方言测试）；`app/controller/offline/` — 桌面专属 `/offline/**`（服务器形态一律 404，门控在 `app/plugins/controller.plug.ts`）
 - `app/lib/` — mysql/index、postgresql/index、sqlite/index（各方言连接，均为 `client` 具名导出 + 默认导出；mysql 用 mysql2 池 / postgresql 用 Bun.SQL / sqlite 用 bun:sqlite，WAL 与 `foreign_keys=ON` 在连接层开启）/ redis/index（客户端）/ logger / error / auth（config 环境配置、password 密码哈希、token JWT 与 refresh 摘要、session 会话签发轮换撤销、perm-registry 路由权限编号反查、access 用户权限缓存与资料、seed 内置角色）；`app/model/` — 按方言分目录（mysql/postgresql/sqlite，各含 `db.ts` + `relations.ts` + `*.mold.ts`）+ `describe.ts`（字段描述注册表，`description(table)` 自动取表名并注入 OpenAPI），经 `$g.mysql` / `$g.pg` / `$g.sqlite` 使用；SQLite 已含 user / role / user_role / role_permission / session 五张 RBAC 表
-- `app/plugins/` — 控制器注册 / macro / schema / auth（全局解析 Bearer 令牌并按路由 `perm` 编号校验登录态与权限）插件；`app/utils/` — file / watch / menu-ui / mergeDeep 通用工具
-- `drizzle.config.<方言>.ts` — 每方言一份 drizzle-kit 迁移配置（mysql/postgresql/sqlite；schema 指 `app/model/<方言>/**/*.mold.ts`，产物落 `system/generated/drizzle/<方言>`，SQLite 仅取 `SQLITE_DATABASE_PATH` 无默认）；迁移命令用 `--config` 指定方言
-- `system/script/` — `index.ts`（dev 生成入口：串起 routes/batchExport/genApiTypes，并指定 gen-api 输出到 src-web）/ build / build_tauri_bun（产出本地服务 JS 产物，不内嵌运行时）/ genApiTypes（产出声明式 API 类型树）/ routes（顶层路由前缀全部组合导出，漏导出=该前缀不可达）/ menu / batchExport（按 `.mold.ts` 生成 `system/generated/model/schema.ts` 与 `system/generated/model/<方言>/index.ts` 表聚合）；`system/types/global.d.ts` — `$g` 全局声明（genApiTypes 显式纳入）；`system/generated/` — 全部派生产物（勿手改，按用途分目录）：`routes.ts`（路由聚合）/ `model/schema.ts`（elysia 模型注册表）/ `model/<方言>/index.ts`（表聚合）/ `drizzle/<方言>/`（迁移产物）
-- `public/` — 服务静态资源；`logs/` — 运行日志；`data/` — 运行期数据目录（SQLite 库文件，路径取 `SQLITE_DATABASE_PATH`）
-- 产物树 `dist/`：主程序 `aigc.exe` 在根，服务相关全部在 `bun/` —— 入口 `cluster.js`（宿主启动的进程管理入口）+ `index.js`（AOT 应用入口 / 集群 worker 入口）+ `chunk-*.js`（代码分割共享块）+ `.env` + `public/` + 随包运行时 `bun.exe`/`bun`（构建期从构建机复制，运行期优先使用、缺失才回落 PATH），入口各带 linked `.map`；纯 JS 打包不编译运行时，由 Rust 以该目录为 CWD 启动
+- `app/plugins/` — 控制器注册 / macro / schema / auth（全局解析 Bearer 令牌并按路由 `perm` 编号校验登录态与权限）插件
+- `utils/` — 通用工具：file / watch / menu-ui / mergeDeep / env_handle（环境变量读取与校验），独立于 app 业务层，根构建脚本也直接复用；`generate/` — 代码生成工具（routes 路由聚合 / batchExport 批量导出 / genApiTypes 声明式类型树），由 `system/script/index.ts` 调度
+- `config/` — 集中配置：`env.ts`（环境变量统一入口 `ENV`，键名与 `.env` 变量同名同大小写，只收 src-bun 模块自身消费的变量，默认值只写在 `.env`，必填项缺失即报错；读取/校验通用逻辑在 `utils/env_handle.ts`；src-bun 之外的根脚本直接读 `process.env`）、`auth.ts`（认证运行参数：权限缓存 TTL/条目上限、过期会话清理间隔）、`bunfig.toml`（Bun 运行/安装，所有 bun 脚本用 `--config` 指定）、`biome/biome.jsonc`（代码检查与格式化，`fix` 用 `--config-path` 指定，`files.includes` 排除 `runtime`）、`drizzle/<方言>.ts`（迁移配置，schema 指 `app/model/<方言>/**/*.mold.ts`，产物落 `runtime/generated/drizzle/<方言>`，SQLite 仅取 `SQLITE_DATABASE_PATH` 无默认，路径相对包根解析）；`tsconfig.json` / `.npmrc` / `.gitignore` 因工具固定从包根读取而保留原处
+- `system/script/` — 命令与构建入口：`index.ts`（dev 生成入口：调度 `utils/generate` 的 routes/batchExport/genApiTypes，配置了 `GEN_API_OUT_DIR` 时输出 Eden 类型树，留空自动跳过）/ `build.ts` / `build_tauri_bun.ts`（产出本地服务 JS 产物，不内嵌运行时）/ `menu.ts`（交互式命令菜单）
+- `runtime/` — 运行期产物目录：`generated/` 全部派生产物（勿手改，按用途分目录）：`routes.ts`（路由聚合）/ `model/schema.ts`（elysia 模型注册表）/ `model/<方言>/index.ts`（表聚合）/ `drizzle/<方言>/`（迁移产物）；`database/` 运行期数据目录（SQLite 库文件，路径取 `SQLITE_DATABASE_PATH`）；`logs/` 运行日志（logger 默认目录）
+- `system/types/` — `global.d.ts`：`$g` 全局声明（genApiTypes 显式纳入）
+- `public/` — 服务静态资源（目录取 `STATIC_DIR`，必填无默认）
+- 产物树 `dist/`：主程序 `aigc.exe` 在根，服务相关全部在 `bun/` —— 入口 `cluster.js`（宿主启动的进程管理入口）+ `index.js`（AOT 应用入口 / 集群 worker 入口）+ `chunk-*.js`（代码分割共享块）+ `.env` + `bunfig.toml`（构建期从 `config/` 取，落产物根）+ `${STATIC_DIR}/` + 随包运行时 `bun.exe`/`bun`（构建期从构建机复制，运行期优先使用、缺失才回落 PATH），入口各带 linked `.map`；纯 JS 打包不编译运行时，由 Rust 以该目录为 CWD 启动
 
 ## src-tauri/（Tauri v2，Rust 桌面壳）
 

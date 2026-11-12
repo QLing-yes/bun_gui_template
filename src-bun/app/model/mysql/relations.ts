@@ -1,5 +1,5 @@
 import { defineRelations } from "drizzle-orm";
-import * as schema from "@/system/generated/model/mysql";
+import * as schema from "@/runtime/generated/model/mysql";
 
 export const relations = defineRelations(schema, (r) => ({
   user: {

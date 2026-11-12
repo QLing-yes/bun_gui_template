@@ -11,5 +11,5 @@
 - devtools：靠 cargo feature `devtools` 开关（`cfg(debug_assertions)` 不能用于选依赖，写了 cargo 会告警并失效）。dev 由 `scripts/dev.ts` 传 `--features devtools`，release 不带。
 - IPC 契约：命令与事件名必须与 `src-web/src/lib/tauri` 的 `IPC`/`IPC_EVENT` 常量表一致，`bun run check:ipc`（已前置进 `scripts/build.ts`）负责校验；新增/改名命令一律走该表。
 - 退出流程：`RunEvent::Exit` 时向 `/offline/exit` 发一次性退出通知（端口取自 `PORT` 环境或 exe 同级 `.env`）；stdin 管道随监控线程持有，Tauri 进程结束时写端关闭，服务侧 `watchParentExit` 兜底，不依赖杀进程。
-- 本地服务终端日志：stdout/stderr 走管道，由 `sidecar.rs` 的 `pump_output` 逐行交给 `sidecar_terminal_log.rs`，按本地日期追加到 `bun/logs/bun_terminal/年-月-日.log`；启动失败、入口缺失、异常退出等生命周期事件写同一份日志（GUI 无控制台，这是唯一排障入口）。服务自身的业务日志仍归 src-bun 的 `bun/logs/`。
+- 本地服务终端日志：stdout/stderr 走管道，由 `sidecar.rs` 的 `pump_output` 逐行交给 `sidecar_terminal_log.rs`，按本地日期追加到 `bun/logs/bun_terminal/年-月-日.log`；启动失败、入口缺失、异常退出等生命周期事件写同一份日志（GUI 无控制台，这是唯一排障入口）。服务自身的业务日志仍归 src-bun 的 `bun/runtime/logs/`。
 - 贴靠布局浮层：web 自绘最大化按钮在稳定版 WebView2 无 HTMAXBUTTON 申报通道（app-region 转发由 Chromium 子窗口与 DWM 直接协作，不经宿主 WndProc；window-drag-button CSS 属 WCO 场景）；待 WebView2 WCO API 转正后再接入，方案与试验记录见记忆/git 历史。

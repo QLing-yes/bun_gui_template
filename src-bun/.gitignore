@@ -60,4 +60,5 @@ bun.lockb
 /.template
 
 # runtime
-/data/
+/runtime/database/
+/runtime/logs/

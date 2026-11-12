@@ -1,13 +1,14 @@
 import { inAotBuild } from "elysia";
 import mysql from "mysql2/promise";
 import { logger } from "@/app/lib/logger";
+import { ENV } from "@/config/env";
 
 /** 创建 MySQL 连接池并注册事件（AOT 构建期不建连） */
 function createClient() {
   const client = mysql.createPool({
-    uri: process.env.MYSQL_DATABASE_URL!,
+    uri: ENV.MYSQL_DATABASE_URL,
     waitForConnections: true,
-    connectionLimit: Number(process.env.MYSQL_DATABASE_POOL_LIMIT) || 10,
+    connectionLimit: ENV.MYSQL_DATABASE_POOL_LIMIT,
   });
   client.pool.on("error", (err: Error) => {
     logger.error("[mysql] error", err);

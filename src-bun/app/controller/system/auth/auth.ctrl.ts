@@ -1,5 +1,6 @@
 import { eq, or } from "drizzle-orm";
 import { t } from "elysia";
+import { collectPermRoutes } from "@/app/common/no_global";
 import {
   AUTH,
   createSession,
@@ -13,7 +14,11 @@ import {
   verifyPasswordDummy,
 } from "@/app/lib/auth";
 import { db } from "@/app/model/sqlite/db";
-import { user, user_role } from "@/system/generated/model/sqlite";
+import {
+  role_permission,
+  user,
+  user_role,
+} from "@/runtime/generated/model/sqlite";
 
 /** 登录名规则：字母或下划线开头，只含字母数字下划线 */
 const USERNAME_PATTERN = "^[a-zA-Z_][a-zA-Z0-9_]*$";
@@ -282,5 +287,26 @@ export default $g.ctrl((app) =>
         isSuper: info.isSuper,
         perms: info.perms,
       });
-    }),
+    })
+
+    /** 孤儿权限编号：数据库已绑定、但当前路由中不存在（用于清理历史绑定） */
+    .post(
+      "orphan_perm",
+      {
+        title: "获取孤儿权限编号",
+        /** 孤儿权限编号列表（升序） */
+        res: t.Array(t.Number()),
+      },
+      async () => {
+        const { permRoutes } = await collectPermRoutes();
+        const rows = await db
+          .selectDistinct({ permCode: role_permission.permCode })
+          .from(role_permission);
+        const orphan = rows
+          .map((row) => row.permCode)
+          .filter((code) => !permRoutes.has(code))
+          .sort((a, b) => a - b);
+        return $g.success(orphan);
+      },
+    ),
 );

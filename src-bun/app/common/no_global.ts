@@ -6,31 +6,53 @@ import type { PublicRoute } from "elysia/types";
 export const PERM_CODE_KEY = "x-perm-code" as const;
 
 /**
- * 反查已注册路由的权限编号并校验唯一（读取 routes 会触发路由编译）
- * 延迟导入 routes_ctrl：避免与 index.plug 形成静态循环依赖
+ * 获取已注册路由的权限编号
+ * @param force 丢弃缓存获取最新的
  */
-export async function collectPermRoutes() {
-  const { routes_ctrl } = await import("@/app/plugins/index.plug");
-  const routes: PublicRoute[] = routes_ctrl.routes;
-  const permRoutes = new Map<number, string>();
-  const permRepeat = {} as Record<number, string[]>;
-
-  for (const { method, path, hooks } of routes) {
-    const code = hooks?.detail?.[PERM_CODE_KEY];
-    if (typeof code !== "number") continue;
-    const route = `${method} ${path}`;
-    const prev = permRoutes.get(code);
-    if (prev) {
-      permRepeat[code] = permRepeat[code] || [];
-      permRepeat[code].push(prev, route);
-    }
-    permRoutes.set(code, route);
+export const collectPermRoutes = (() => {
+  /** 权限路由扫描结果 */
+  interface PermRouteScan {
+    /** 权限编号 → 路由签名列表（长度 >1 即编号重复） */
+    permRoutes: Map<number, string[]>;
+    /** 重复的权限编号 → 路由签名列表 */
+    permRepeat: Map<number, string[]>;
   }
 
-  return {
-    /** 权限编号 → 路由路径 的映射 */
-    permRoutes,
-    /** 重复的权限编号 → 路由路径列表 */
-    permRepeat,
+  /** 扫描缓存：路由在进程内固定，只编译/遍历一次 */
+  let cache: Promise<PermRouteScan> | undefined;
+
+  /** 单次遍历建立编号 → 路由列表；延迟导入 routes_ctrl 避免与 index.plug 静态循环 */
+  const scan = async (): Promise<PermRouteScan> => {
+    const { routes_ctrl } = await import("@/app/plugins/index.plug");
+    const routes: PublicRoute[] = routes_ctrl.routes;
+    const permRoutes = new Map<number, string[]>();
+    const permRepeat = new Map<number, string[]>();
+
+    for (const { method, path, hooks } of routes) {
+      const code = hooks?.detail?.[PERM_CODE_KEY];
+      if (typeof code !== "number") continue;
+      const route = `${method} ${path}`;
+      const list = permRoutes.get(code);
+      if (!list) {
+        permRoutes.set(code, [route]);
+        continue;
+      }
+      // 同一签名重复注册不算编号冲突
+      if (list.includes(route)) continue;
+      list.push(route);
+      permRepeat.set(code, list);
+    }
+
+    return { permRoutes, permRepeat };
   };
-}
+
+  return (force = false): Promise<PermRouteScan> => {
+    if (force) cache = undefined;
+    cache ??= scan().catch((error) => {
+      // 失败不缓存，允许下次重试
+      cache = undefined;
+      throw error;
+    });
+    return cache;
+  };
+})();

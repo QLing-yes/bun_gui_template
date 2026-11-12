@@ -1,4 +1,4 @@
-import { post, user } from "@/system/generated/model/postgresql";
+import { post, user } from "@/runtime/generated/model/postgresql";
 
 /** PostgreSQL 表与关系测试 */
 export default $g.ctrl((app) =>

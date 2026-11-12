@@ -37,7 +37,10 @@ export function getPermRegistry(): Promise<PermRegistry> {
   cache ??= collectPermRoutes().then(({ permRoutes }) => {
     const exact = new Map<string, number>();
     const matchers: PermMatcher[] = [];
-    for (const [code, route] of permRoutes) {
+    for (const [code, routes] of permRoutes) {
+      // 编号重复时取首个注册项，重复项已由启动日志提示
+      const route = routes[0];
+      if (!route) continue;
       const index = route.indexOf(" ");
       const method = route.slice(0, index).toUpperCase();
       const path = route.slice(index + 1);
