@@ -1,16 +1,15 @@
 // controller路由范围内的插件导入到这里注册
-import { Elysia, ElysiaError, ValidationError } from "elysia";
-import * as $g from "@/app/common";
-import { config as tauri_config } from "@/app/common/tauri_sidecar";
+import { Elysia } from "elysia";
 import { logger } from "@/app/lib/logger";
 import plug_auth from "@/app/plugins/auth.plug";
 import plug_macro from "@/app/plugins/macro.plug";
 import plug_schemas from "@/app/plugins/schemas.plug";
 
-/** 控制器插件 */
+/** 控制器插件：注册 schemas / macro / auth 三个路由级插件与请求日志 */
 export default new Elysia({ name: "app/plugins/controller.plug" })
   .use(plug_schemas)
   .use(plug_macro)
+  /** 统一请求日志（local scope：仅作用于 controller 及其子孙路由，能读到 request 插件 global derive 注入的 rid） */
   .onBeforeHandle((p) => {
     const mate = Object.fromEntries(
       Object.entries({
@@ -27,41 +26,5 @@ export default new Elysia({ name: "app/plugins/controller.plug" })
     );
     logger.info(`[request] ${p.request.method} ${p.route || p.path}`, mate);
   })
-  /** 形态门控：/offline 属本机桌面服务专属能力，服务器实例（无令牌）访问一律 404 */
-  .onBeforeHandle(({ set, path }) => {
-    if (tauri_config.token || !path.startsWith("/offline")) return;
-    set.status = 404;
-    return $g.error("Not Found");
-  })
-  /** 桌面本地服务模式校验访问令牌（含宿主启动/退出通知），拦截本机其他进程；开发模式（无令牌）全放行 */
-  .onBeforeHandle(({ request, set, path }) => {
-    if (!tauri_config.token) return;
-    if (request.headers.get("x-tauri-token") === tauri_config.token) return;
-    logger.warn(`[auth] rejected ${request.method} ${path}`);
-    set.status = 401;
-    return $g.error("Unauthorized");
-  })
   /** 登录态与接口权限校验（路由未声明 perm 编号即公开） */
-  .use(plug_auth)
-  // .afterResponse(({ set, request, ...p }) => {
-  // 	logger.info(`[response] ${request.method} ${p.route || p.path} ${set.status}`);
-  // })
-  .onError("global", ({ error, request, set, ...p }) => {
-    const err = error instanceof Error ? error : new Error(String(error));
-    const errCode = error instanceof ElysiaError ? error.code : err.name;
-    // 人性化验证器错误信息（只取第一个数据验证错误信息，已格式化处理）
-    if (error instanceof ValidationError) {
-      const property = error.all[0].path.replace(/^\//, "");
-      err.message = `[${error.type}] ${property} : ${err.message}`;
-    }
-    // 记录错误日志
-    logger.error(`${request.method} ${p.route || p.path}`, {
-      rid: p.rid,
-      code: errCode,
-      msg: err.message,
-      stack: err.stack,
-    });
-    // 统一错误响应
-    set.headers["content-type"] = "application/json";
-    return $g.error(err.message);
-  });
+  .use(plug_auth);

@@ -16,7 +16,7 @@
 
 ### 本项目注意事项
 1. 入口约定: AOT 编译"主 app"优先取 `app` 导出, 其次 `default` 导出, 再次入口唯一实例。本项目 `app/index.ts` 已 `export const app`; `app/cluster.ts` 只做进程管理、不导出实例, 因此 **AOT 指向** 恒为 `app/index.ts`, 打包 entrypoints 为双入口 `[cluster.ts, index.ts]`(产物 cluster.js 供宿主启动, index.js 为 worker/AOT 入口)。
-2. 构建期会真实执行入口(dry-run): 数据库/Redis 连接、定时器、顶层 await、日志初始化都会在构建机跑一遍。外部服务初始化必须包在 `if (!inAotBuild()) { ... }`(`import { inAotBuild } from "elysia"`)。本项目 `app/common/init-global.ts` 经 `app/common/index.ts` 静态引入 drizzle/redis, 必须确认构建期不建连(惰性连接)。
+2. 构建期会真实执行入口(dry-run): 数据库/Redis 连接、定时器、顶层 await、日志初始化都会在构建机跑一遍。外部服务初始化必须包在 `if (!ENV.IS_AOT) { ... }`(`import { ENV } from "@/config/env"`)。本项目 `app/common/init-global.ts` 经 `app/common/index.ts` 静态引入 drizzle/redis, 必须确认构建期不建连(惰性连接)。
 3. 实例 name 必须静态、唯一, 且构建期与运行期取值完全一致: 禁止由环境变量或运行时计算派生。本项目插件/generated 路由已统一使用显式静态常量名(如 `app/plugins/macro.plug`、`generated:plug_0`), 禁止再引入 `String(counter.n)` 这类依赖模块加载顺序的派生名——顺序一旦变化 manifest 键就对不上, 运行期报 `has no AOT manifest` 或 `Mismatch fingerprint`。多 app 场景主 app 也必须命名, 且所有 name 互不重复。
 4. 只有自己起服务的实例才需要从入口命名导出: 凡是调用 `.listen()`/`.handle()`/`.compile()`、读 `.fetch`、或 `.mount(x.fetch)`/`.mount(x.handle)` 的实例, 否则构建成功但运行期抛 `[elysia-aot] App "<name>" has no AOT manifest. Name and export it, .mount() ones too`。仅 `.use()` 组合的插件、以及 `.mount(普通函数)`(如 `auth.handler`)不需要导出。
 5. cluster worker 入口随产物切换: `app/cluster.ts` 用 `workerEntry = index + (import.meta.path 以 .ts 结尾 ? ".ts" : ".js")` 拼同目录路径，源码运行派 index.ts、打包产物派 index.js；worker 用 `process.execPath` 启动(随包 bun 即包内运行时、dev 即系统 bun)，**禁止写死 `bun` 或 `${import.meta.dir}/index.ts`**(dist 里不存在，且 PATH 未必有 bun)。
@@ -27,6 +27,7 @@
 
 # 环境变量
 - src-bun 模块内禁止直接读 `process.env` / `Bun.env`（构建期 define 注入的 `process.env.NODE_ENV` 字面量、宿主注入的 `TAURI_SIDECAR` 除外；后者在 `app/common/tauri_sidecar.ts` 直接读 `process.env`），统一从 `@/config/env` 的 `ENV` 读取；`config/env.ts` 只收 `.env` 里声明的变量，默认值只写在 `.env`，读取/校验/类型转换的通用逻辑放 `utils/env_handle.ts`。
+- 运行环境判断统一走 `ENV.IS_DEV`（生产即 `!IS_DEV`）与 `ENV.IS_AOT`（AOT 构建期）：禁止用 `NODE_ENV` 做分支判断（`ENV.NODE_ENV` 仅可作原始值读取展示），也禁止直接调 `inAotBuild()`（仅 `config/env.ts` 内部使用）。
 - src-bun 之外的脚本（根 `scripts/` 等）按常规方式直接读 `process.env`，不反向依赖 src-bun 的 `ENV`。
 
 # 控制器规则

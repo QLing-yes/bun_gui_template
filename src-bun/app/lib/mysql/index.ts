@@ -1,4 +1,3 @@
-import { inAotBuild } from "elysia";
 import mysql from "mysql2/promise";
 import { logger } from "@/app/lib/logger";
 import { ENV } from "@/config/env";
@@ -17,7 +16,7 @@ function createClient() {
     logger.warn("[mysql] 请求排队，等待空闲连接");
   });
   // AOT 构建期 dry-run 不建立真实连接，仅运行时校验连接
-  if (!inAotBuild()) {
+  if (!ENV.IS_AOT) {
     client
       .getConnection()
       .then((conn) => {

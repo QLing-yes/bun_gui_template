@@ -1,13 +1,12 @@
 import { Database } from "bun:sqlite";
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
-import { inAotBuild } from "elysia";
 import { logger } from "@/app/lib/logger";
 import { ENV } from "@/config/env";
 
 /** 创建 SQLite 连接（AOT 构建期用内存库，避免构建写入文件；WAL + NORMAL + 忙等待降低锁冲突与写延迟） */
 function createClient() {
-  const path = inAotBuild() ? ":memory:" : ENV.SQLITE_DATABASE_PATH;
+  const path = ENV.IS_AOT ? ":memory:" : ENV.SQLITE_DATABASE_PATH;
   if (path !== ":memory:") mkdirSync(dirname(path), { recursive: true });
   const client = new Database(path, { create: true, strict: true });
   // WAL：读不阻塞写、写不阻塞读，写入吞吐明显更高；缺点是多出 -wal/-shm 伴生文件，且不适合网络盘

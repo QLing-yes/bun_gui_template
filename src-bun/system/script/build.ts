@@ -17,8 +17,8 @@ export const aotEntry = join(root, "./app/index.ts");
 export async function build(config: Partial<Bun.BuildConfig>) {
   console.log("\n\x1b[33m🔄 Bun构建中...\x1b[0m\n");
 
-  /** 静态资源目录（与运行时同一环境变量源，启用静态资源时必填） */
-  const staticDir = ENV.STATIC_ENABLED ? ENV.STATIC_DIR : undefined;
+  /** 静态资源目录（与运行时同一环境变量源，非空时随产物分发） */
+  const staticDir = ENV.STATIC_DIR;
 
   const op: Bun.BuildConfig = mergeDeep(
     {
@@ -70,7 +70,8 @@ export async function build(config: Partial<Bun.BuildConfig>) {
 
       // 构建时常量注入
       define: {
-        // 注入生产环境标识：代码中 process.env.NODE_ENV 会被直接替换为字符串字面量 "production"（必须带引号）
+        // 注入生产环境标识：第三方依赖里的 process.env.NODE_ENV 会被直接替换为字符串字面量 "production"（必须带引号）
+        // 本项目自身不读它，开发/生产判断统一走 ENV.IS_DEV
         "process.env.NODE_ENV": '"production"',
       },
     },

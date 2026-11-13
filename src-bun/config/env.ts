@@ -4,13 +4,26 @@
  * 读取/校验/类型转换的通用逻辑见 `utils/env_handle.ts`。
  */
 
-import { flag, num, opt, optNum, str } from "../utils/env_handle";
+import { inAotBuild } from "elysia";
+import { env, flag, num, opt, optNum, str } from "../utils/env_handle";
 
 export const ENV = {
   // ─── 运行环境 ───────────────────────────────────────────────────────────
-  /** 运行环境标识（development / production，未设置时为空串） */
+  /** 运行环境原始值（development / production，未设置时为空串）；只作读取展示，开发/生产判断请用 IS_DEV */
   get NODE_ENV(): string {
     return opt("NODE_ENV") ?? "";
+  },
+  /**
+   * 是否为开发环境，生产即 `!IS_DEV`；模块内开发/生产的唯一判据
+   * 来源：`.env` 的 IS_DEV 开关优先，否则取 NODE_ENV（dev 脚本置 development，打包产物由 define 固化为 production）
+   */
+  get IS_DEV(): boolean {
+    if (env["IS_DEV"]) return flag("IS_DEV");
+    return env["NODE_ENV"] === "development";
+  },
+  /** 是否处于 AOT 构建期（构建脚本 dry-run 执行入口时为 true，运行期恒为 false）；模块内 AOT 的唯一判据 */
+  get IS_AOT(): boolean {
+    return inAotBuild();
   },
   /** 服务端口 */
   get PORT(): string {
@@ -26,13 +39,9 @@ export const ENV = {
   get OPENAPI_ENABLED(): boolean {
     return flag("OPENAPI_ENABLED");
   },
-  /** 是否开启静态资源服务 */
-  get STATIC_ENABLED(): boolean {
-    return flag("STATIC_ENABLED");
-  },
-  /** 静态资源目录（相对运行目录，开启静态资源时必填） */
-  get STATIC_DIR(): string {
-    return str("STATIC_DIR");
+  /** 静态资源目录（相对运行目录，留空=不启用静态资源服务） */
+  get STATIC_DIR(): string | undefined {
+    return opt("STATIC_DIR");
   },
 
   // ─── 代码生成 ───────────────────────────────────────────────────────────

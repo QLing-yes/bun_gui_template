@@ -37,15 +37,18 @@ Project/
 │   │   └── auth/             # 认证：JWT、密码哈希、会话、权限缓存、内置角色
 │   ├── model/                # Drizzle 数据模型目录（按方言分目录，`.mold.ts` 导出的`schema`自动注册）
 │   │   ├── describe.ts       # 字段描述注册表（`description(table)` 注入 OpenAPI）
-│   │   ├── mysql/            # db.ts / relations.ts / *.mold.ts
-│   │   ├── postgresql/       # db.ts / relations.ts / *.mold.ts
-│   │   └── sqlite/           # db.ts / relations.ts / *.mold.ts
+│   │   ├── mysql/
+│   │   ├── postgresql/
+│   │   └── sqlite/
 │   ├── plugins/
-│   │   ├── index.plug.ts     # 全局插件
+│   │   ├── index.plug.ts     # 应用组装入口
 │   │   ├── controller.plug.ts # 控制器插件
 │   │   ├── macro.plug.ts     # 宏插件
 │   │   ├── schemas.plug.ts   # 数据模型注册插件
-│   │   └── auth.plug.ts      # 登录态与接口权限插件
+│   │   ├── auth.plug.ts      # 登录态与接口权限插件
+│   │   ├── request.plug.ts   # 请求元信息插件（rid）
+│   │   ├── tauri.plug.ts     # 桌面宿主安全（/offline 门控 + 令牌校验）
+│   │   └── error.plug.ts     # 全局错误处理
 │   ├── cluster.ts            # 单机多进程集群模式入口（仅Linux生效）
 │   └── index.ts              # 应用入口
 ├── utils/                    # 通用工具（独立于 app，根构建脚本也复用）
@@ -58,7 +61,7 @@ Project/
 │   │   └── biome.jsonc       # 代码检查与格式化（fix 用 --config-path 指定）
 │   └── drizzle/              # 迁移配置（mysql / postgresql / sqlite 各一份）
 ├── runtime/                  # 运行期产物（不入库，除 generated 外）
-│   ├── generated/            # 派生产物（勿手改）：routes.ts、model/schema.ts、model/<方言>/index.ts、drizzle/<方言>/
+│   ├── generated/            # 派生产物（勿手改）
 │   ├── database/             # 运行期数据（SQLite 库文件，路径取 SQLITE_DATABASE_PATH）
 │   └── logs/                 # 运行日志
 ├── system/                   # 脚本与类型声明
@@ -95,7 +98,8 @@ Project/
 
 - 统一放在仓库根目录 `.env`（mysql / PostgreSQL / SQLite / Redis / AI / 认证配置）。
 - src-bun 内统一从 `config/env.ts` 的 `ENV` 读取（不直接读 `process.env` / `Bun.env`），键名与 `.env` 变量同名同大小写（如 `ENV.STATIC_DIR`）；src-bun 之外的根脚本（如 `scripts/config.ts`、`scripts/round_icons.ts`）按常规直接读 `process.env`。默认值只写在 `.env`，必填项缺失会直接报错。
-- 静态资源：`STATIC_ENABLED` 开关、`STATIC_DIR` 指定目录（必填、无默认值，相对运行目录，构建时同步复制到产物）。
+- 运行环境判断：开发/生产用 `ENV.IS_DEV`（生产即 `!IS_DEV`），AOT 构建期用 `ENV.IS_AOT`；`ENV.NODE_ENV` 只作原始值读取展示，不参与分支判断，也不直接调 `inAotBuild()`（只有 `config/env.ts` 内部调用）。
+- 静态资源：`STATIC_DIR` 指定目录（留空=不启用，非空时相对运行目录，构建时同步复制到产物）。
 - 代码生成：`GEN_API_OUT_DIR` 指定 Eden API 类型树输出目录（相对运行目录；留空则 `bun run gen` 跳过该步）。
 - 认证相关：`JWT_SECRET`（必改）、`JWT_ISSUER`、`JWT_AUDIENCE`、`JWT_ACCESS_TTL_SEC`、`JWT_REFRESH_TTL_SEC`、`AUTH_SUPER_ADMIN_USER`（注册时直接授予超管的用户名，留空不授予）。
 - 环境判断：`TAURI_SIDECAR` 由桌面宿主注入、不属于 `.env`，直接在 `app/common/tauri_sidecar.ts` 读 `process.env`（`ENV` 中不收录）。
@@ -160,7 +164,7 @@ bun run db:studio   # drizzle 可视化
 
 ## 日志配置
 
-- 默认：[应用使用`同步`模式记录](app/lib/error.ts)，[控制器使用`异步`记录的方式](app/plugins/controller.plug.ts)。
+- 默认：[应用使用`同步`模式记录](app/lib/error.ts)，[控制器使用`异步`记录的方式](app/plugins/controller.plug.ts)，[错误兜底在`error.plug.ts`](app/plugins/error.plug.ts)。
 
 ```typescript
 import { Logger, logger } from "@/app/lib/logger";

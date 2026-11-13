@@ -3,7 +3,7 @@
  * 只处理 `process.env` 的读取语义，不包含任何业务配置项；业务配置在 `config/env.ts` 组装。
  */
 
-const raw = process.env;
+export const env = process.env;
 
 /**
  * 读取必填字符串，缺失立即抛错
@@ -11,7 +11,7 @@ const raw = process.env;
  * @returns 非空字符串值
  */
 export function str(key: string): string {
-  const value = raw[key];
+  const value = env[key];
   if (!value) throw new Error(`[env] 缺少环境变量：${key}`);
   return value;
 }
@@ -22,7 +22,7 @@ export function str(key: string): string {
  * @returns 有值返回字符串，空值/缺失返回 undefined
  */
 export function opt(key: string): string | undefined {
-  return raw[key] || undefined;
+  return env[key] || undefined;
 }
 
 /**
@@ -31,7 +31,7 @@ export function opt(key: string): string | undefined {
  * @returns 是否等于字符串 "true"
  */
 export function flag(key: string): boolean {
-  return raw[key] === "true";
+  return env[key] === "true";
 }
 
 /**
@@ -51,7 +51,7 @@ export function num(key: string): number {
  * @returns 有效数字返回数字，缺失或非法返回 undefined
  */
 export function optNum(key: string): number | undefined {
-  const value = raw[key];
+  const value = env[key];
   if (!value) return undefined;
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : undefined;

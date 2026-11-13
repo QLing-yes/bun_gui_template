@@ -1,5 +1,9 @@
 import "@/app/common/init-global";
-import { Elysia, inAotBuild } from "elysia";
+import { cors } from "@elysia/cors";
+import { openapi } from "@elysia/openapi";
+import { staticPlugin } from "@elysia/static";
+import { Elysia } from "elysia";
+import { PERM_CODE_KEY } from "@/app/common/no_global";
 import {
   config,
   exitApp,
@@ -8,14 +12,14 @@ import {
 } from "@/app/common/tauri_sidecar";
 import plugins from "@/app/plugins/index.plug";
 import { ENV } from "@/config/env";
+import { createDir } from "@/utils/file";
 
-/** 当前运行环境：构建期 NODE_ENV 被固化为 production，源码运行未设置则为 development */
-const ENV_NAME = ENV.NODE_ENV === "production" ? "production" : "development";
+const isUse = <T, R>(is: T, use: () => R) => is ? use() : new Elysia();
 
 // 启动即声明运行信息；AOT 构建期会 dry-run 执行本入口，跳过避免误报（token 非空=由 tauri 宿主拉起，bun 侧唯一的 tauri 判据）
-if (!inAotBuild()) {
+if (!ENV.IS_AOT) {
   console.info(
-    `[bun] 环境：${ENV_NAME}；tauri：${Boolean(config.token)}；当前平台：${process.platform}`,
+    `[bun] 环境：${ENV.NODE_ENV}；tauri：${Boolean(config.token)}；当前平台：${process.platform}`,
   );
 }
 
@@ -35,6 +39,15 @@ export const app = new Elysia({
     idleTimeout: 15,
   },
 })
+  // 可选插件：在 plugins 之前注册，不被后续 hook 影响
+  .use(isUse(ENV.CORS_ENABLED, () => cors()))
+  .use(isUse(ENV.OPENAPI_ENABLED, () => openapi({ scalar: { showExtensions: [PERM_CODE_KEY] } })))
+  .use(
+    isUse(ENV.STATIC_DIR, () => {
+      createDir(ENV.STATIC_DIR!);
+      return staticPlugin({ assets: ENV.STATIC_DIR, alwaysStatic: false });
+    })
+  )
   .use(plugins)
   .listen(ENV.PORT);
 

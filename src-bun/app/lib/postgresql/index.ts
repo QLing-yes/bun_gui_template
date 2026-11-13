@@ -1,5 +1,4 @@
 import { SQL } from "bun";
-import { inAotBuild } from "elysia";
 import { logger } from "@/app/lib/logger";
 import { ENV } from "@/config/env";
 
@@ -10,7 +9,7 @@ function createClient() {
     max: ENV.PG_DATABASE_POOL_LIMIT,
   });
   // AOT 构建期 dry-run 不建立真实连接，仅运行时校验连接
-  if (!inAotBuild() && ENV.PG_DATABASE_URL) {
+  if (!ENV.IS_AOT && ENV.PG_DATABASE_URL) {
     client
       .unsafe("select 1")
       .then(() => logger.info("[postgresql] connected successfully"))
