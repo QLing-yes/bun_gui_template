@@ -10,7 +10,7 @@ import {
 } from "@/app/lib/auth";
 
 /** perm 宏校验所需的最小上下文 */
-interface PermContext {
+export interface PermContext {
   /** 当前登录用户载荷，由 auth 插件的全局 derive 注入；未登录为 null */
   authUser: AccessPayload | null;
   /** 响应状态写入句柄 */

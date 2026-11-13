@@ -5,19 +5,19 @@ import type { PublicRoute } from "elysia/types";
 /** OpenAPI 扩展字段：接口权限编号 */
 export const PERM_CODE_KEY = "x-perm-code" as const;
 
+/** 权限路由扫描结果 */
+export interface PermRouteScan {
+  /** 权限编号 → 路由签名列表（长度 >1 即编号重复） */
+  permRoutes: Map<number, string[]>;
+  /** 重复的权限编号 → 路由签名列表 */
+  permRepeat: Map<number, string[]>;
+}
+
 /**
  * 获取已注册路由的权限编号
  * @param force 丢弃缓存获取最新的
  */
 export const collectPermRoutes = (() => {
-  /** 权限路由扫描结果 */
-  interface PermRouteScan {
-    /** 权限编号 → 路由签名列表（长度 >1 即编号重复） */
-    permRoutes: Map<number, string[]>;
-    /** 重复的权限编号 → 路由签名列表 */
-    permRepeat: Map<number, string[]>;
-  }
-
   /** 扫描缓存：路由在进程内固定，只编译/遍历一次 */
   let cache: Promise<PermRouteScan> | undefined;
 
