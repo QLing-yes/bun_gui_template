@@ -1,14 +1,14 @@
 // controller路由范围内的插件导入到这里注册
 import { Elysia, ElysiaError, ValidationError } from "elysia";
-import * as $c from "@/app/common";
+import * as $g from "@/app/common";
+import { config as tauri_config } from "@/app/common/tauri_sidecar";
 import { logger } from "@/app/lib/logger";
+import plug_auth from "@/app/plugins/auth.plug";
 import plug_macro from "@/app/plugins/macro.plug";
 import plug_schemas from "@/app/plugins/schemas.plug";
-import plug_auth from "@/app/plugins/auth.plug";
-import { config as tauri_config } from "@/app/common/tauri_sidecar";
 
 /** 控制器插件 */
-export default new Elysia({ name: String($g.counter.n) })
+export default new Elysia({ name: "app/plugins/controller.plug" })
   .use(plug_schemas)
   .use(plug_macro)
   .onBeforeHandle((p) => {
@@ -31,7 +31,7 @@ export default new Elysia({ name: String($g.counter.n) })
   .onBeforeHandle(({ set, path }) => {
     if (tauri_config.token || !path.startsWith("/offline")) return;
     set.status = 404;
-    return $c.error("Not Found");
+    return $g.error("Not Found");
   })
   /** 桌面本地服务模式校验访问令牌（含宿主启动/退出通知），拦截本机其他进程；开发模式（无令牌）全放行 */
   .onBeforeHandle(({ request, set, path }) => {
@@ -39,7 +39,7 @@ export default new Elysia({ name: String($g.counter.n) })
     if (request.headers.get("x-tauri-token") === tauri_config.token) return;
     logger.warn(`[auth] rejected ${request.method} ${path}`);
     set.status = 401;
-    return $c.error("Unauthorized");
+    return $g.error("Unauthorized");
   })
   /** 登录态与接口权限校验（路由未声明 perm 编号即公开） */
   .use(plug_auth)
@@ -63,5 +63,5 @@ export default new Elysia({ name: String($g.counter.n) })
     });
     // 统一错误响应
     set.headers["content-type"] = "application/json";
-    return $c.error(err.message);
+    return $g.error(err.message);
   });

@@ -11,7 +11,6 @@ export {
   verifyPassword,
   verifyPasswordDummy,
 } from "./password";
-export { getPermRegistry, permCodeOf } from "./perm-registry";
 export { ensureDefaultRoles, roleIdByCode } from "./seed";
 export type { SessionMeta, TokenPair, TokenUser } from "./session";
 export {

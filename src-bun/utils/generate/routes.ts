@@ -39,7 +39,7 @@ function generatePlugin(
   const str_prefix = `prefix: "${route_prefix}"`;
   const str_tags = `tags:["/${route_tag}"]`;
   const str_detail = `detail: { ${str_tags} }`;
-  const str_name = `name: num()`;
+  const str_name = `name: "generated:${val_prefix}${idx}"`;
 
   const opts = `{ ${str_prefix}, ${str_detail}, ${str_name} }`;
 
@@ -117,7 +117,7 @@ const DEFAULT_CONFIG = {
   suffix: ["ctrl.ts"],
   output: {
     comment: "// auto generated",
-    import: 'import Elysia from "elysia";\nimport * as $g from "@/app/common";',
+    import: 'import Elysia from "elysia";',
     pluginPrefix: "plug_",
   },
 };
@@ -138,8 +138,6 @@ export default function generate(op: Config) {
 
   const chunks: string[] = [`${output.comment}\n${output.import}\n`];
   fileList.forEach((uri, i) => chunks.push(`import mod_${i} from "${uri}";\n`));
-
-  chunks.push("\nconst num = () => String($g.counter.n);\n");
 
   const dirKeys = Object.keys(fileTree).sort();
   const dirInfo = buildDirInfo(dirKeys, config.fromDir);
@@ -179,8 +177,8 @@ export default function generate(op: Config) {
     .filter((i): i is number => i !== undefined);
   const exportDefault =
     output.exportDefault ??
-    `new Elysia({ name: num() })${rootIdx
-      .map((i) => `.use(${output.pluginPrefix}${i}())`)
+    `new Elysia({ name: "generated:default" })${rootIdx
+      .map((i) => `\n.use(${output.pluginPrefix}${i}())`)
       .join("")}`;
 
   chunks.push(`\nexport default ${exportDefault};\n`);

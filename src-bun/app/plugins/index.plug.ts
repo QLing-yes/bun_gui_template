@@ -19,7 +19,7 @@ collectPermRoutes().then(({ permRepeat }) => {
     logger.error("[权限编号重复]", Object.fromEntries(permRepeat));
 });
 
-const app = new Elysia({ name: String($g.counter.n) }).derive(() => {
+const app = new Elysia({ name: "app/plugins/index.plug" }).derive(() => {
   return {
     /** 路由每次请求的唯一标识 */
     rid: crypto.randomUUID(),

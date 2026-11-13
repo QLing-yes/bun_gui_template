@@ -115,16 +115,17 @@ Project/
 
 | 方法 | 路径 | 说明 |
 |---|---|---|
-| POST | `/system/ready` | 服务就绪探针 |
-| POST | `/system/all_perm` | 权限编号 → 路由签名 |
-| POST | `/system/auth/orphan_perm` | 孤儿权限编号清单（数据库已绑定、当前路由不存在，升序） |
+| GET | `/system/ready` | 服务就绪探针 |
+| POST | `/system/all_perm` | 权限路由扫描结果（编号→路由签名列表、重复编号），需权限 11001 |
+| POST | `/system/auth/orphan_perm` | 孤儿权限编号清单（数据库已绑定、当前路由不存在，升序），需权限 11002 |
 | POST | `/system/auth/register` | 注册：用户名必填，邮箱/手机号可选；返回 access + refresh |
 | POST | `/system/auth/login` | 用户名 / 邮箱 / 手机号 + 密码登录 |
 | POST | `/system/auth/refresh` | 用 refresh token 换新凭据（旧会话立即撤销） |
 | POST | `/system/auth/logout` | 撤销 refresh token 对应会话 |
 | GET | `/system/auth/me` | 当前登录用户资料、角色与权限编号 |
 
-- 受保护接口在路由选项声明 `perm(编号)`，请求头带 `Authorization: Bearer <accessToken>`；未声明编号的接口公开。
+- 受保护接口在路由选项声明 `perm: 编号`，请求头带 `Authorization: Bearer <accessToken>`；未声明编号的接口公开。
+- 权限编号为 5 位：首位表示模块域（`1` 系统 / `2` 业务 `/api` / `9` 测试），后 4 位为域内顺序号，全局唯一；重复编号由启动日志与 `/system/all_perm` 的 `permRepeat` 报出。
 - 超级管理员（`super_admin`）短路放行；其余按角色绑定的 `role_permission.perm_code` 校验，用户权限缓存 30 秒。
 - 内置角色在首次注册时自动写入：超级管理员(`super_admin`) / 管理员(`admin`) / 普通用户(`user`)，注册默认分配 `user`。
 - 表结构：`user` / `role` / `user_role` / `role_permission` / `session`，迁移产物在 `runtime/generated/drizzle/sqlite`。

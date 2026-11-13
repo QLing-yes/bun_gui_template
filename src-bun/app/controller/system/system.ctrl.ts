@@ -3,7 +3,7 @@ import { collectPermRoutes } from "@/app/common/no_global";
 
 export default (app: Ctrl) =>
   app
-    .post(
+    .get(
       "/ready",
       {
         title: "本服务是否就绪",
@@ -15,16 +15,22 @@ export default (app: Ctrl) =>
       "/all_perm",
       {
         title: "获取所有权限路由列表",
-        /** 权限编号 → 路由签名 */
-        res: t.Record(t.Number(), t.String()),
+        perm: 11001,
+        res: t.Object({
+          /** 权限编号 → 路由签名列表 */
+          permRoutes: t.Record(t.String(), t.Array(t.String())),
+          /** 重复的权限编号 → 路由签名列表 */
+          permRepeat: t.Record(t.String(), t.Array(t.String())),
+        }),
       },
       async () => {
-        const { permRoutes } = await collectPermRoutes();
-        /** 权限编号 → 路由签名（重复编号以 " | " 连接展示） */
-        const perm_route = {} as Record<number, string>;
-        for (const [code, routes] of permRoutes) {
-          perm_route[code] = routes.join(" | ");
-        }
-        return $g.success(perm_route);
+        const { permRoutes, permRepeat } = await collectPermRoutes();
+        /** Map 无法被 JSON 序列化，统一转成普通对象 */
+        return $g.success({
+          /** 权限编号 → 路由签名列表 */
+          permRoutes: Object.fromEntries(permRoutes),
+          /** 重复的权限编号 → 路由签名列表 */
+          permRepeat: Object.fromEntries(permRepeat),
+        });
       },
     );

@@ -294,6 +294,7 @@ export default $g.ctrl((app) =>
       "orphan_perm",
       {
         title: "获取孤儿权限编号",
+        perm: 11002,
         /** 孤儿权限编号列表（升序） */
         res: t.Array(t.Number()),
       },

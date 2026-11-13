@@ -24,3 +24,17 @@ export function mergeDeep<
   }
   return target;
 }
+
+/** 只读计数器 */
+export class counter {
+  private num = 0;
+  /** 局部计数器 */
+  get n() {
+    return ++this.num;
+  }
+  private static num = 0;
+  /** 全局计数器 */
+  static get n() {
+    return ++counter.num;
+  }
+}
