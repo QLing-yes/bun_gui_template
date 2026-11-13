@@ -24,7 +24,7 @@ import { useAuthStore } from "@/store/auth"
 
 export function SidebarUser() {
   const navigate = useNavigate()
-  const username = useAuthStore((s) => s.username)
+  const user = useAuthStore((s) => s.user)
   const logout = useAuthStore((s) => s.logout)
   /** 菜单受控开关：明暗档要在菜单里滑完游标再收，不能被菜单的自动关闭打断 */
   const [open, setOpen] = useState(false)
@@ -32,6 +32,11 @@ export function SidebarUser() {
   /** 菜单项切页：延后到菜单消失，动画本体仍由路由轨道决定 @param to 目标地址 */
   const goTo = (to: string) => {
     window.setTimeout(() => navigate(to), OVERLAY_CLOSE_MS)
+  }
+
+  /** 退出登录：调后端撤销会话 + 清除本地登录态 */
+  const handleLogout = async () => {
+    await logout()
   }
 
   return (
@@ -43,8 +48,8 @@ export function SidebarUser() {
               <Avatar className="size-8 rounded-lg">
                 <AvatarFallback className="rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
                   {/* 头像占位：用户名首字符，未登录用图标 */}
-                  {username ? (
-                    username.charAt(0).toUpperCase()
+                  {user ? (
+                    user.username.charAt(0).toUpperCase()
                   ) : (
                     <AppIcon name="user" size={16} />
                   )}
@@ -53,7 +58,7 @@ export function SidebarUser() {
               {/* 折叠成图标时名称与设置图标淡出，仅留头像 */}
               <div className={SIDEBAR_LABEL_CLASS}>
                 <span className="truncate font-semibold">
-                  {username ?? "未登录"}
+                  {user?.username ?? "未登录"}
                 </span>
               </div>
               <AppIcon
@@ -92,8 +97,8 @@ export function SidebarUser() {
                 <AppIcon name="settings" size={16} />
                 设置
               </DropdownMenuItem>
-              {username ? (
-                <DropdownMenuItem onClick={logout}>
+              {user ? (
+                <DropdownMenuItem onClick={handleLogout}>
                   <AppIcon name="logOut" size={16} />
                   退出登录
                 </DropdownMenuItem>

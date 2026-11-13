@@ -21,12 +21,12 @@ export function TestTokenPage() {
   /** 请求结果文本（成功信封或错误信息） */
   const [result, setResult] = useState("")
 
-  /** 测试 sidecar token 鉴权链路：error 分支表示 HTTP/校验失败，成功则显示信封内容 */
+  /** 测试 sidecar token 鉴权链路：调用 /system/ready 验证可达性 */
   const testToken = async () => {
     setLoading(true)
-    setResult("请求中... POST /success")
+    setResult("请求中... GET /system/ready")
     try {
-      const { data, error, status } = await client.api.success.post()
+      const { data, error, status } = await client.system.ready.get()
       setResult(
         error
           ? `HTTP ${status}\n${JSON.stringify(error.value, null, 2)}`

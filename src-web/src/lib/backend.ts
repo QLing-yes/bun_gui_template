@@ -2,6 +2,7 @@
 // 形态判据只有两条：VITE_API_URL 是否指向远程、sidecar 令牌是否已就绪
 
 import { sidecarToken } from "@/lib/tauri"
+import { useAuthStore } from "@/store/auth"
 
 /** 远程 API 根地址；空串=同源部署（走相对路径） */
 const baseURL = (import.meta.env.VITE_API_URL ?? "") as string
@@ -12,22 +13,25 @@ export function apiUrl(path: string): string {
   return `${baseURL}${path}`
 }
 
-/** 组装带 sidecar 鉴权头的 Headers；令牌为空（浏览器/服务器形态）则原样返回
+/** 组装带 sidecar 鉴权头与用户 Bearer 令牌的 Headers；令牌为空（浏览器/未登录）则不追加
  * @param init 既有头 @returns 合并后的 Headers */
 export async function authHeaders(init?: HeadersInit): Promise<Headers> {
   const headers = new Headers(init)
   const token = await sidecarToken()
   if (token) headers.set("x-tauri-token", token)
+  const accessToken = useAuthStore.getState().accessToken
+  if (accessToken) headers.set("Authorization", `Bearer ${accessToken}`)
   return headers
 }
 
-/** Eden treaty 请求拦截器：有令牌才回传追加头
+/** Eden treaty 请求拦截器：sidecar 令牌与用户 Bearer 令牌都追加
  * @param _path 请求路径（treaty 约定占位） @param options 已组装的 fetch 选项 @returns 追加项或 void */
 export async function treatyRequest(
   _path: string,
   options: RequestInit
 ): Promise<RequestInit | void> {
   const token = await sidecarToken()
-  if (!token) return
+  const accessToken = useAuthStore.getState().accessToken
+  if (!token && !accessToken) return
   return { headers: await authHeaders(options.headers) }
 }

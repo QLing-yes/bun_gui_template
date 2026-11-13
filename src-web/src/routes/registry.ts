@@ -126,7 +126,7 @@ export const shellRoutes: RouteObject[] = [
         },
       ]
     : []),
-  // 演示：受限导航项——声明当前账号不具备的权限，用来看「可用/受限」并列而不用改代码
+  // 演示：受限导航项——声明当前账号不具备的权限编号，用来看「可用/受限」并列而不用改代码
   // 正式接入角色/权限体系后删除本条路由与菜单项（权限来源见 lib/access.ts 注释）
   {
     path: "restricted",
@@ -134,7 +134,7 @@ export const shellRoutes: RouteObject[] = [
     handle: handleOf(
       PAGE,
       { label: "受限示例", icon: "flaskConical", order: 3 },
-      { permission: "demo:restricted", label: "受限示例权限（demo:restricted）", demo: true }
+      { permission: 99999, label: "受限示例权限（99999）", demo: true }
     ),
   },
   // Dev-only 图标光学审计页：不挂 nav，地址直达 #/dev/icons

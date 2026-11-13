@@ -92,8 +92,8 @@ function EmptyStatePage({ kind, path, access }: EmptyStatePageProps) {
           <EmptyContent>
             {kind === "forbidden" && access?.demo && (
               <p className="max-w-xs text-center text-xs text-muted-foreground">
-                演示项：在 src-web/src/lib/access.ts 的 PLACEHOLDER_GRANTS
-                里给当前账号（未登录为 guest）加入「{access.permission}」或「*」即可放行；
+                演示项：在后端给当前角色的 role_permission 表里插入
+                perm_code={access.permission} 后刷新即可放行；
                 也可在 routes/registry.ts 移除该路由的 access 声明。
               </p>
             )}

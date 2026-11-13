@@ -1,4 +1,4 @@
-// 登录页（login-03 风格）：用户名+密码表单；校验预留，任意凭据直接通过
+// 登录页（login-03 风格）：用户名+密码表单，调用后端 /system/auth/login 与 /system/auth/register
 
 import { useRef, useState } from "react"
 import type { RefObject } from "react"
@@ -39,9 +39,9 @@ function validate(username: string, password: string): FormErrors {
   const errors: FormErrors = {}
   const name = username.trim()
   if (!name) errors.username = "请输入用户名"
-  else if (name.length < 2) errors.username = "用户名至少 2 个字符"
+  else if (name.length < 3) errors.username = "用户名至少 3 个字符"
   if (!password) errors.password = "请输入密码"
-  else if (password.length < 6) errors.password = "密码至少 6 位"
+  else if (password.length < 8) errors.password = "密码至少 8 位"
   return errors
 }
 
@@ -71,9 +71,11 @@ type LoginFieldProps = {
   onValue: (value: string) => void
   /** 清掉该字段错误（输入即清，避免错了还挂着红框） */
   onClearError: () => void
+  /** 辅助提示（密码规范等，常驻显示在输入框下方） */
+  hint?: string
 }
 
-/** 单字段行：Field(data-invalid) + 标签 + 输入 + FieldError（官方原语组合，手写校验状态） */
+/** 单字段行：Field(data-invalid) + 标签 + 输入 + FieldError + 可选 hint（官方原语组合，手写校验状态） */
 function LoginField({
   id,
   label,
@@ -85,6 +87,7 @@ function LoginField({
   inputRef,
   onValue,
   onClearError,
+  hint,
 }: LoginFieldProps) {
   return (
     <Field data-invalid={error ? true : undefined}>
@@ -103,6 +106,9 @@ function LoginField({
           onClearError()
         }}
       />
+      {hint && !error && (
+        <p className="text-xs text-muted-foreground">{hint}</p>
+      )}
       <FieldError>{error}</FieldError>
     </Field>
   )
@@ -133,18 +139,33 @@ function LoginBackButton() {
 export function LoginPage() {
   const navigate = useNavigate()
   const login = useAuthStore((s) => s.login)
+  const register = useAuthStore((s) => s.register)
+  /** 当前表单模式：login=登录，register=注册 */
+  const [mode, setMode] = useState<"login" | "register">("login")
   const [username, setUsername] = useState("")
   const [password, setPassword] = useState("")
   const [errors, setErrors] = useState<FormErrors>({})
+  /** 后端返回的通用错误（用户名占用、密码错误等） */
+  const [serverError, setServerError] = useState("")
+  /** 请求进行中 */
+  const [loading, setLoading] = useState(false)
   /** 校验失败的输入框：抖动一下作即时反馈 */
   const usernameRef = useRef<HTMLInputElement>(null)
   const passwordRef = useRef<HTMLInputElement>(null)
 
-  /** 提交：校验通过后走预留登录并回主界面（replace 避免后退又回到登录页） */
-  const onSubmit = (e: React.FormEvent) => {
+  /** 切换模式：清错误与输入值，避免登录态残留到注册表单 */
+  const switchMode = (next: "login" | "register") => {
+    setMode(next)
+    setErrors({})
+    setServerError("")
+  }
+
+  /** 提交：校验通过后按当前模式调登录或注册，成功后回主界面 */
+  const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     const next = validate(username, password)
     setErrors(next)
+    setServerError("")
     if (next.username || next.password) {
       shake(
         [
@@ -154,8 +175,19 @@ export function LoginPage() {
       )
       return
     }
-    login(username.trim())
-    navigate("/", { replace: true })
+    setLoading(true)
+    const ok =
+      mode === "login"
+        ? await login(username.trim(), password)
+        : await register(username.trim(), password)
+    setLoading(false)
+    if (ok) {
+      navigate("/", { replace: true })
+    } else {
+      setServerError(
+        mode === "login" ? "用户名或密码错误" : "用户名已被占用"
+      )
+    }
   }
 
   // 滚动容器是页面根本身（主干 overflow 恒 hidden，文档不滚）：矮窗口下内容可滚到
@@ -200,8 +232,14 @@ export function LoginPage() {
             {/* 卡片衬在壳色上：磨砂背景由 index.scss 全局规则统一提供（含模糊） */}
             <Card className="relative rounded-t-2xl border-b border-solid border-separator px-3">
               <CardHeader className="text-center">
-                <CardTitle className="text-xl">登录账号</CardTitle>
-                <CardDescription>输入用户名和密码登录</CardDescription>
+                <CardTitle className="text-xl">
+                  {mode === "login" ? "登录账号" : "注册账号"}
+                </CardTitle>
+                <CardDescription>
+                  {mode === "login"
+                    ? "输入用户名和密码登录"
+                    : "输入用户名和密码注册"}
+                </CardDescription>
               </CardHeader>
               <CardContent>
                 <form onSubmit={onSubmit}>
@@ -224,7 +262,7 @@ export function LoginPage() {
                       label="密码"
                       placeholder="请输入密码"
                       type="password"
-                      autoComplete="current-password"
+                      autoComplete={mode === "login" ? "current-password" : "new-password"}
                       value={password}
                       error={errors.password}
                       inputRef={passwordRef}
@@ -232,12 +270,44 @@ export function LoginPage() {
                       onClearError={() =>
                         setErrors((prev) => ({ ...prev, password: undefined }))
                       }
+                      hint={
+                        mode === "register"
+                          ? "8-128 位，支持字母、数字与符号"
+                          : undefined
+                      }
                     />
+                    {serverError && (
+                      <Field data-invalid>
+                        <FieldError>{serverError}</FieldError>
+                      </Field>
+                    )}
                     <Field>
-                      {/* 亮档近黑由 primary 令牌提供（≈#191919），暗档自动反白；仅保留略重的悬停档 */}
-                      <Button type="submit" className="w-full hover:bg-primary/90">
-                        登录
+                      <Button
+                        type="submit"
+                        className="w-full hover:bg-primary/90"
+                        disabled={loading}
+                      >
+                        {loading
+                          ? mode === "login"
+                            ? "登录中..."
+                            : "注册中..."
+                          : mode === "login"
+                            ? "登录"
+                            : "注册"}
                       </Button>
+                    </Field>
+                    <Field>
+                      <button
+                        type="button"
+                        className="mx-auto block cursor-pointer text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+                        onClick={() =>
+                          switchMode(mode === "login" ? "register" : "login")
+                        }
+                      >
+                        {mode === "login"
+                          ? "还没有账号？去注册"
+                          : "已有账号？去登录"}
+                      </button>
                     </Field>
                   </FieldGroup>
                 </form>
